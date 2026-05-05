@@ -29,10 +29,13 @@ func main() {
 
 	log.Printf("SQLite configured at %s", dbPath)
 
+	paginationConfig := config.LoadPaginationConfig()
+	log.Printf("Pagination: default_limit=%d, max_limit=%d", paginationConfig.DefaultLimit, paginationConfig.MaxLimit)
+
 	mux := http.NewServeMux()
 	taskRepository := repository.NewSQLiteTaskRepository(sqliteDB)
 	taskService := service.NewTaskService(taskRepository)
-	taskHandler := handler.NewTaskHandler(taskService)
+	taskHandler := handler.NewTaskHandler(taskService, paginationConfig)
 
 	mux.HandleFunc("GET /tasks", taskHandler.GetTasks)
 	mux.HandleFunc("POST /tasks", taskHandler.CreateTask)

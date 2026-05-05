@@ -24,13 +24,13 @@ func (s *TaskService) AddTask(title string, done bool) (model.Task, error) {
 	return task, nil
 }
 
-func (s *TaskService) ListTasks() ([]model.Task, error) {
-	tasks, err := s.repository.ListTasks()
+func (s *TaskService) ListTasks(offset, limit int) ([]model.Task, int, error) {
+	tasks, total, err := s.repository.ListTasks(offset, limit)
 	if err != nil {
-		return nil, fmt.Errorf("list tasks: %w", err)
+		return nil, 0, fmt.Errorf("list tasks: %w", err)
 	}
 
-	return tasks, nil
+	return tasks, total, nil
 }
 
 func (s *TaskService) UpdateTask(id int, title string, done bool) (model.Task, error) {

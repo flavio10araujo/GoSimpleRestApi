@@ -34,13 +34,19 @@ func (r *SQLiteTaskRepository) AddTask(title string, done bool) (model.Task, err
 	return model.Task{ID: int(id), Title: title, Done: done}, nil
 }
 
-func (r *SQLiteTaskRepository) ListTasks() ([]model.Task, error) {
+func (r *SQLiteTaskRepository) ListTasks(offset, limit int) ([]model.Task, int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	rows, err := r.db.QueryContext(ctx, "SELECT id, title, done FROM tasks ORDER BY id")
+	var total int
+	countErr := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM tasks").Scan(&total)
+	if countErr != nil {
+		return nil, 0, fmt.Errorf("count tasks: %w", countErr)
+	}
+
+	rows, err := r.db.QueryContext(ctx, "SELECT id, title, done FROM tasks ORDER BY id LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("query tasks: %w", err)
+		return nil, 0, fmt.Errorf("query tasks: %w", err)
 	}
 	defer rows.Close()
 
@@ -49,17 +55,17 @@ func (r *SQLiteTaskRepository) ListTasks() ([]model.Task, error) {
 		var task model.Task
 		var done int
 		if err := rows.Scan(&task.ID, &task.Title, &done); err != nil {
-			return nil, fmt.Errorf("scan task: %w", err)
+			return nil, 0, fmt.Errorf("scan task: %w", err)
 		}
 		task.Done = done == 1
 		tasks = append(tasks, task)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate tasks: %w", err)
+		return nil, 0, fmt.Errorf("iterate tasks: %w", err)
 	}
 
-	return tasks, nil
+	return tasks, total, nil
 }
 
 func (r *SQLiteTaskRepository) UpdateTask(id int, title string, done bool) (model.Task, error) {

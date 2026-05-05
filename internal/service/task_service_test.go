@@ -11,7 +11,7 @@ import (
 
 type fakeTaskRepository struct {
 	addTaskFn    func(title string, done bool) (model.Task, error)
-	listTasksFn  func() ([]model.Task, error)
+	listTasksFn  func(offset, limit int) ([]model.Task, int, error)
 	updateTaskFn func(id int, title string, done bool) (model.Task, error)
 	deleteTaskFn func(id int) error
 }
@@ -20,8 +20,8 @@ func (f *fakeTaskRepository) AddTask(title string, done bool) (model.Task, error
 	return f.addTaskFn(title, done)
 }
 
-func (f *fakeTaskRepository) ListTasks() ([]model.Task, error) {
-	return f.listTasksFn()
+func (f *fakeTaskRepository) ListTasks(offset, limit int) ([]model.Task, int, error) {
+	return f.listTasksFn(offset, limit)
 }
 
 func (f *fakeTaskRepository) UpdateTask(id int, title string, done bool) (model.Task, error) {
@@ -85,18 +85,21 @@ func TestTaskServiceAddTaskError(t *testing.T) {
 func TestTaskServiceListTasksSuccess(t *testing.T) {
 	expected := []model.Task{{ID: 1, Title: "A", Done: false}, {ID: 2, Title: "B", Done: true}}
 	repo := &fakeTaskRepository{
-		listTasksFn: func() ([]model.Task, error) {
-			return expected, nil
+		listTasksFn: func(offset, limit int) ([]model.Task, int, error) {
+			return expected, 2, nil
 		},
 	}
 
 	svc := NewTaskService(repo)
-	got, err := svc.ListTasks()
+	got, total, err := svc.ListTasks(0, 20)
 	if err != nil {
 		t.Fatalf("ListTasks returned unexpected error: %v", err)
 	}
 	if len(got) != len(expected) {
 		t.Fatalf("ListTasks returned %d tasks, expected %d", len(got), len(expected))
+	}
+	if total != 2 {
+		t.Fatalf("ListTasks total is %d, expected 2", total)
 	}
 	for i := range expected {
 		if got[i] != expected[i] {
@@ -108,13 +111,13 @@ func TestTaskServiceListTasksSuccess(t *testing.T) {
 func TestTaskServiceListTasksError(t *testing.T) {
 	repoErr := errors.New("query failed")
 	repo := &fakeTaskRepository{
-		listTasksFn: func() ([]model.Task, error) {
-			return nil, repoErr
+		listTasksFn: func(offset, limit int) ([]model.Task, int, error) {
+			return nil, 0, repoErr
 		},
 	}
 
 	svc := NewTaskService(repo)
-	got, err := svc.ListTasks()
+	got, total, err := svc.ListTasks(0, 20)
 	if err == nil {
 		t.Fatal("ListTasks expected error, got nil")
 	}
@@ -126,6 +129,9 @@ func TestTaskServiceListTasksError(t *testing.T) {
 	}
 	if got != nil {
 		t.Fatalf("ListTasks should return nil slice on error")
+	}
+	if total != 0 {
+		t.Fatalf("ListTasks should return 0 total on error")
 	}
 }
 

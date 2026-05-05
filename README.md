@@ -15,6 +15,20 @@ Simple REST API in Go.
 - `PUT /tasks/{id}`
 - `DELETE /tasks/{id}`
 
+### Pagination
+
+#### Listar com defaults (offset=0, limit=20)
+GET /tasks
+
+#### Listar página 2 (11-20)
+GET /tasks?offset=10&limit=10
+
+#### Listar com limite personalizado
+GET /tasks?limit=50
+
+#### Erro: limit acima do máximo (100)
+GET /tasks?limit=101  # → 400 Bad Request
+
 ## SQLite configuration
 
 The app reads `DB_PATH` from environment.

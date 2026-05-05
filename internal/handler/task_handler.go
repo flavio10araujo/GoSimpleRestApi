@@ -6,12 +6,15 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/flavio10araujo/GoSimpleRestApi/internal/config"
+	"github.com/flavio10araujo/GoSimpleRestApi/internal/model"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/repository"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/service"
 )
 
 type TaskHandler struct {
-	taskService *service.TaskService
+	taskService      *service.TaskService
+	paginationConfig *config.PaginationConfig
 }
 
 type createTaskRequest struct {
@@ -24,23 +27,38 @@ type updateTaskRequest struct {
 	Done  bool   `json:"done"`
 }
 
-func NewTaskHandler(taskService *service.TaskService) *TaskHandler {
-	return &TaskHandler{taskService: taskService}
+func NewTaskHandler(taskService *service.TaskService, paginationConfig *config.PaginationConfig) *TaskHandler {
+	return &TaskHandler{taskService: taskService, paginationConfig: paginationConfig}
 }
 
 func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
-	_ = r
+	offset, limit, err := parsePaginationParams(r, h.paginationConfig)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
-	tasks, err := h.taskService.ListTasks()
+	tasks, total, err := h.taskService.ListTasks(offset, limit)
 	if err != nil {
 		http.Error(w, "failed to list tasks", http.StatusInternalServerError)
 		return
 	}
 
+	if tasks == nil {
+		tasks = make([]model.Task, 0)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(tasks); err != nil {
+	response := PaginatedResponse{
+		Data:   tasks,
+		Total:  total,
+		Offset: offset,
+		Limit:  limit,
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 	}
 }
@@ -140,4 +158,32 @@ func parseTaskID(r *http.Request) (int, error) {
 	}
 
 	return id, nil
+}
+
+func parsePaginationParams(r *http.Request, cfg *config.PaginationConfig) (int, int, error) {
+	offsetStr := r.URL.Query().Get("offset")
+	limitStr := r.URL.Query().Get("limit")
+
+	offset := 0
+	if offsetStr != "" {
+		o, err := strconv.Atoi(offsetStr)
+		if err != nil || o < 0 {
+			return 0, 0, errors.New("invalid offset")
+		}
+		offset = o
+	}
+
+	limit := cfg.DefaultLimit
+	if limitStr != "" {
+		l, err := strconv.Atoi(limitStr)
+		if err != nil || l <= 0 {
+			return 0, 0, errors.New("invalid limit")
+		}
+		if l > cfg.MaxLimit {
+			return 0, 0, errors.New("limit exceeds maximum allowed")
+		}
+		limit = l
+	}
+
+	return offset, limit, nil
 }
