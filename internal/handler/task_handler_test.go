@@ -100,6 +100,7 @@ func TestGetTasksError(t *testing.T) {
 	req := httptest.NewRequest("GET", "/tasks", nil)
 	w := httptest.NewRecorder()
 	handler.GetTasks(w, req)
+
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("GetTasks returned status %d, expected %d", w.Code, http.StatusInternalServerError)
 	}
@@ -146,6 +147,7 @@ func TestCreateTaskInvalidBody(t *testing.T) {
 	req := httptest.NewRequest("POST", "/tasks", bytes.NewReader([]byte("invalid json")))
 	w := httptest.NewRecorder()
 	handler.CreateTask(w, req)
+
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("CreateTask with invalid body returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
