@@ -18,19 +18,30 @@ type TaskHandler struct {
 }
 
 type createTaskRequest struct {
-	Title string `json:"title"`
-	Done  bool   `json:"done"`
+	Title string `json:"title" example:"Buy groceries"`
+	Done  bool   `json:"done" example:"false"`
 }
 
 type updateTaskRequest struct {
-	Title string `json:"title"`
-	Done  bool   `json:"done"`
+	Title string `json:"title" example:"Buy milk"`
+	Done  bool   `json:"done" example:"true"`
 }
 
 func NewTaskHandler(taskService *service.TaskService, paginationConfig *config.PaginationConfig) *TaskHandler {
 	return &TaskHandler{taskService: taskService, paginationConfig: paginationConfig}
 }
 
+// GetTasks godoc
+// @Summary      List all tasks with pagination
+// @Description  Retrieve paginated list of tasks from the database
+// @Tags         tasks
+// @Param        offset  query  int  false  "Offset for pagination (default: 0)"  default(0)
+// @Param        limit   query  int  false  "Limit per page (default: 20, max: 100)"  default(20)
+// @Produce      json
+// @Success      200  {object}  PaginatedResponse
+// @Failure      400  {object}  map[string]string  "Invalid pagination parameters"
+// @Failure      500  {object}  map[string]string  "Database error"
+// @Router       /tasks [get]
 func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 	offset, limit, err := parsePaginationParams(r, h.paginationConfig)
 	if err != nil {
@@ -63,6 +74,17 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// CreateTask godoc
+// @Summary      Create a new task
+// @Description  Add a new task to the database
+// @Tags         tasks
+// @Accept       json
+// @Param        body  body  createTaskRequest  true  "Task data"
+// @Produce      json
+// @Success      201  {object}  model.Task
+// @Failure      400  {object}  map[string]string  "Missing title or invalid JSON"
+// @Failure      500  {object}  map[string]string  "Database error"
+// @Router       /tasks [post]
 func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
@@ -91,6 +113,19 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// UpdateTask godoc
+// @Summary      Update an existing task
+// @Description  Modify a task by ID
+// @Tags         tasks
+// @Accept       json
+// @Param        id    path  int                    true  "Task ID"
+// @Param        body  body  updateTaskRequest  true  "Updated task data"
+// @Produce      json
+// @Success      200  {object}  model.Task
+// @Failure      400  {object}  map[string]string  "Invalid ID or request"
+// @Failure      404  {object}  map[string]string  "Task not found"
+// @Failure      500  {object}  map[string]string  "Database error"
+// @Router       /tasks/{id} [put]
 func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
@@ -130,6 +165,17 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// DeleteTask godoc
+// @Summary      Delete a task
+// @Description  Remove a task by ID
+// @Tags         tasks
+// @Param        id  path  int  true  "Task ID"
+// @Produce      json
+// @Success      204
+// @Failure      400  {object}  map[string]string  "Invalid ID"
+// @Failure      404  {object}  map[string]string  "Task not found"
+// @Failure      500  {object}  map[string]string  "Database error"
+// @Router       /tasks/{id} [delete]
 func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	id, err := parseTaskID(r)
 	if err != nil {

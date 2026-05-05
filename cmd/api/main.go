@@ -4,12 +4,30 @@ import (
 	"log"
 	"net/http"
 
+	httpSwagger "github.com/swaggo/http-swagger/v2"
+
+	_ "github.com/flavio10araujo/GoSimpleRestApi/docs"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/config"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/db"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/handler"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/repository"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/service"
 )
+
+// @title           GoSimpleRestApi
+// @version         1.0.0
+// @description     Simple REST API for managing tasks with pagination
+// @termsOfService  http://example.com/terms/
+
+// @contact.name   API Support
+// @contact.url    http://example.com/support
+// @contact.email  support@example.com
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /
 
 func main() {
 	dbPath := config.GetEnv("DB_PATH", "./data/tasks.db")
@@ -37,11 +55,17 @@ func main() {
 	taskService := service.NewTaskService(taskRepository)
 	taskHandler := handler.NewTaskHandler(taskService, paginationConfig)
 
+	// Swagger UI
+	mux.Handle("/swagger/", httpSwagger.Handler(
+		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
+	))
+
 	mux.HandleFunc("GET /tasks", taskHandler.GetTasks)
 	mux.HandleFunc("POST /tasks", taskHandler.CreateTask)
 	mux.HandleFunc("PUT /tasks/{id}", taskHandler.UpdateTask)
 	mux.HandleFunc("DELETE /tasks/{id}", taskHandler.DeleteTask)
 
 	log.Println("Server running on :8080")
+	log.Println("Swagger UI available at http://localhost:8080/swagger/index.html")
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }
