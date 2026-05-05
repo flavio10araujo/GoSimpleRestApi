@@ -39,3 +39,21 @@ func OpenSQLite(path string) (*sql.DB, error) {
 
 	return sqliteDB, nil
 }
+
+func EnsureTasksSchema(sqliteDB *sql.DB) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	const schema = `
+CREATE TABLE IF NOT EXISTS tasks (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	title TEXT NOT NULL,
+	done INTEGER NOT NULL DEFAULT 0
+);`
+
+	if _, err := sqliteDB.ExecContext(ctx, schema); err != nil {
+		return fmt.Errorf("ensure tasks schema: %w", err)
+	}
+
+	return nil
+}

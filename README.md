@@ -1,12 +1,12 @@
-# FirstApp
+# GoSimpleRestApi
 
 Simple REST API in Go.
 
 ## Current status
 
 - `GET /tasks` and `POST /tasks` are implemented.
-- Task persistence is still in-memory (`internal/service/task_service.go`).
-- SQLite is already configured at startup, but not used by the service yet.
+- Task persistence uses SQLite (`internal/service/task_service.go`).
+- The `tasks` table is created automatically at startup.
 
 ## SQLite configuration
 

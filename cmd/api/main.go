@@ -16,6 +16,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to initialize sqlite: %v", err)
 	}
+	if err := db.EnsureTasksSchema(sqliteDB); err != nil {
+		_ = sqliteDB.Close()
+		log.Fatalf("failed to ensure sqlite schema: %v", err)
+	}
 	defer func() {
 		if closeErr := sqliteDB.Close(); closeErr != nil {
 			log.Printf("failed to close sqlite connection: %v", closeErr)
@@ -25,7 +29,7 @@ func main() {
 	log.Printf("SQLite configured at %s", dbPath)
 
 	mux := http.NewServeMux()
-	taskService := service.NewTaskService()
+	taskService := service.NewTaskService(sqliteDB)
 	taskHandler := handler.NewTaskHandler(taskService)
 
 	mux.HandleFunc("GET /tasks", taskHandler.GetTasks)

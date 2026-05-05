@@ -23,7 +23,11 @@ func NewTaskHandler(taskService *service.TaskService) *TaskHandler {
 func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 	_ = r
 
-	tasks := h.taskService.ListTasks()
+	tasks, err := h.taskService.ListTasks()
+	if err != nil {
+		http.Error(w, "failed to list tasks", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -47,7 +51,11 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdTask := h.taskService.AddTask(req.Title, req.Done)
+	createdTask, err := h.taskService.AddTask(req.Title, req.Done)
+	if err != nil {
+		http.Error(w, "failed to create task", http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)

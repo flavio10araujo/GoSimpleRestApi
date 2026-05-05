@@ -1,46 +1,75 @@
 package service
 
 import (
-	"sync"
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
 
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/model"
 )
 
 type TaskService struct {
-	mu     sync.RWMutex
-	tasks  []model.Task
-	nextID int
+	db *sql.DB
 }
 
-func NewTaskService() *TaskService {
-	return &TaskService{
-		tasks:  make([]model.Task, 0),
-		nextID: 1,
+func NewTaskService(db *sql.DB) *TaskService {
+	return &TaskService{db: db}
+}
+
+func (s *TaskService) AddTask(title string, done bool) (model.Task, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	result, err := s.db.ExecContext(ctx, "INSERT INTO tasks (title, done) VALUES (?, ?)", title, boolToSQLite(done))
+	if err != nil {
+		return model.Task{}, fmt.Errorf("insert task: %w", err)
 	}
-}
 
-func (s *TaskService) AddTask(title string, done bool) model.Task {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	id, err := result.LastInsertId()
+	if err != nil {
+		return model.Task{}, fmt.Errorf("get inserted task id: %w", err)
+	}
 
-	task := model.Task{
-		ID:    s.nextID,
+	return model.Task{
+		ID:    int(id),
 		Title: title,
 		Done:  done,
-	}
-
-	s.nextID++
-	s.tasks = append(s.tasks, task)
-
-	return task
+	}, nil
 }
 
-func (s *TaskService) ListTasks() []model.Task {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+func (s *TaskService) ListTasks() ([]model.Task, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
-	tasks := make([]model.Task, len(s.tasks))
-	copy(tasks, s.tasks)
+	rows, err := s.db.QueryContext(ctx, "SELECT id, title, done FROM tasks ORDER BY id")
+	if err != nil {
+		return nil, fmt.Errorf("list tasks: %w", err)
+	}
+	defer rows.Close()
 
-	return tasks
+	tasks := make([]model.Task, 0)
+	for rows.Next() {
+		var task model.Task
+		var done int
+		if err := rows.Scan(&task.ID, &task.Title, &done); err != nil {
+			return nil, fmt.Errorf("scan task: %w", err)
+		}
+		task.Done = done == 1
+		tasks = append(tasks, task)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate tasks: %w", err)
+	}
+
+	return tasks, nil
+}
+
+func boolToSQLite(done bool) int {
+	if done {
+		return 1
+	}
+
+	return 0
 }
