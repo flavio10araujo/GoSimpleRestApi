@@ -4,9 +4,16 @@ Simple REST API in Go.
 
 ## Current status
 
-- `GET /tasks` and `POST /tasks` are implemented.
-- Task persistence uses SQLite (`internal/service/task_service.go`).
+- `GET /tasks`, `POST /tasks`, `PUT /tasks/{id}` and `DELETE /tasks/{id}` are implemented.
+- Task persistence uses SQLite through repository layer (`internal/repository/sqlite_task_repository.go`).
 - The `tasks` table is created automatically at startup.
+
+## Endpoints
+
+- `GET /tasks`
+- `POST /tasks`
+- `PUT /tasks/{id}`
+- `DELETE /tasks/{id}`
 
 ## SQLite configuration
 

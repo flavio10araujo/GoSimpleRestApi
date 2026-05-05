@@ -1,75 +1,51 @@
 package service
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
-	"time"
 
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/model"
+	"github.com/flavio10araujo/GoSimpleRestApi/internal/repository"
 )
 
 type TaskService struct {
-	db *sql.DB
+	repository repository.TaskRepository
 }
 
-func NewTaskService(db *sql.DB) *TaskService {
-	return &TaskService{db: db}
+func NewTaskService(taskRepository repository.TaskRepository) *TaskService {
+	return &TaskService{repository: taskRepository}
 }
 
 func (s *TaskService) AddTask(title string, done bool) (model.Task, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	result, err := s.db.ExecContext(ctx, "INSERT INTO tasks (title, done) VALUES (?, ?)", title, boolToSQLite(done))
+	task, err := s.repository.AddTask(title, done)
 	if err != nil {
-		return model.Task{}, fmt.Errorf("insert task: %w", err)
+		return model.Task{}, fmt.Errorf("add task: %w", err)
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return model.Task{}, fmt.Errorf("get inserted task id: %w", err)
-	}
-
-	return model.Task{
-		ID:    int(id),
-		Title: title,
-		Done:  done,
-	}, nil
+	return task, nil
 }
 
 func (s *TaskService) ListTasks() ([]model.Task, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	rows, err := s.db.QueryContext(ctx, "SELECT id, title, done FROM tasks ORDER BY id")
+	tasks, err := s.repository.ListTasks()
 	if err != nil {
 		return nil, fmt.Errorf("list tasks: %w", err)
-	}
-	defer rows.Close()
-
-	tasks := make([]model.Task, 0)
-	for rows.Next() {
-		var task model.Task
-		var done int
-		if err := rows.Scan(&task.ID, &task.Title, &done); err != nil {
-			return nil, fmt.Errorf("scan task: %w", err)
-		}
-		task.Done = done == 1
-		tasks = append(tasks, task)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate tasks: %w", err)
 	}
 
 	return tasks, nil
 }
 
-func boolToSQLite(done bool) int {
-	if done {
-		return 1
+func (s *TaskService) UpdateTask(id int, title string, done bool) (model.Task, error) {
+	task, err := s.repository.UpdateTask(id, title, done)
+	if err != nil {
+		return model.Task{}, fmt.Errorf("update task: %w", err)
 	}
 
-	return 0
+	return task, nil
+}
+
+func (s *TaskService) DeleteTask(id int) error {
+	if err := s.repository.DeleteTask(id); err != nil {
+		return fmt.Errorf("delete task: %w", err)
+	}
+
+	return nil
 }

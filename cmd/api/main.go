@@ -7,6 +7,7 @@ import (
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/config"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/db"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/handler"
+	"github.com/flavio10araujo/GoSimpleRestApi/internal/repository"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/service"
 )
 
@@ -29,11 +30,14 @@ func main() {
 	log.Printf("SQLite configured at %s", dbPath)
 
 	mux := http.NewServeMux()
-	taskService := service.NewTaskService(sqliteDB)
+	taskRepository := repository.NewSQLiteTaskRepository(sqliteDB)
+	taskService := service.NewTaskService(taskRepository)
 	taskHandler := handler.NewTaskHandler(taskService)
 
 	mux.HandleFunc("GET /tasks", taskHandler.GetTasks)
 	mux.HandleFunc("POST /tasks", taskHandler.CreateTask)
+	mux.HandleFunc("PUT /tasks/{id}", taskHandler.UpdateTask)
+	mux.HandleFunc("DELETE /tasks/{id}", taskHandler.DeleteTask)
 
 	log.Println("Server running on :8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
