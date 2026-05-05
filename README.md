@@ -18,14 +18,14 @@ The app reads `DB_PATH` from environment.
 ## Run
 
 ```powershell
-cd C:\Dev\Projects\flavio\fma-go\FirstApp
+cd C:\Dev\Projects\flavio\fma-go\GoSimpleRestApi
 go run ./...
 ```
 
 ## Run with custom SQLite path
 
 ```powershell
-cd C:\Dev\Projects\flavio\fma-go\FirstApp
+cd C:\Dev\Projects\flavio\fma-go\GoSimpleRestApi
 $env:DB_PATH = "./data/dev-tasks.db"
 go run ./...
 ```
