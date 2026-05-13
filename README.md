@@ -120,3 +120,122 @@ The server implements graceful shutdown. When receiving `SIGINT` (Ctrl+C) or `SI
 4. Exits cleanly
 
 Test graceful shutdown by pressing Ctrl+C while the server is running.
+
+## Quick API usage with curl
+
+> On Windows PowerShell, prefer `curl.exe` to avoid alias issues with `Invoke-WebRequest`.
+
+### Base URL
+
+```text
+http://localhost:8080
+```
+
+### 1) Create a task
+
+```bash
+curl.exe -X POST "http://localhost:8080/tasks" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"title\":\"Buy groceries\",\"done\":false}"
+```
+
+Expected response (`201 Created`):
+
+```json
+{
+  "id": 1,
+  "title": "Buy groceries",
+  "done": false
+}
+```
+
+### 2) List tasks (paginated)
+
+```bash
+curl.exe "http://localhost:8080/tasks?offset=0&limit=20"
+```
+
+Expected response (`200 OK`):
+
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "title": "Buy groceries",
+      "done": false
+    }
+  ],
+  "total": 1,
+  "offset": 0,
+  "limit": 20
+}
+```
+
+### 3) Get task by ID
+
+```bash
+curl.exe "http://localhost:8080/tasks/1"
+```
+
+Expected response (`200 OK`):
+
+```json
+{
+  "id": 1,
+  "title": "Buy groceries",
+  "done": false
+}
+```
+
+### 4) Replace task (PUT)
+
+```bash
+curl.exe -X PUT "http://localhost:8080/tasks/1" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"title\":\"Buy milk\",\"done\":true}"
+```
+
+Expected response (`200 OK`):
+
+```json
+{
+  "id": 1,
+  "title": "Buy milk",
+  "done": true
+}
+```
+
+### 5) Partial update (PATCH)
+
+```bash
+curl.exe -X PATCH "http://localhost:8080/tasks/1" ^
+  -H "Content-Type: application/json" ^
+  -d "{\"done\":false}"
+```
+
+Expected response (`200 OK`):
+
+```json
+{
+  "id": 1,
+  "title": "Buy milk",
+  "done": false
+}
+```
+
+### 6) Delete task
+
+```bash
+curl.exe -X DELETE "http://localhost:8080/tasks/1"
+```
+
+Expected response: `204 No Content`
+
+### Example error response
+
+```json
+{
+  "error": "task not found"
+}
+```
