@@ -11,6 +11,7 @@ import (
 
 type fakeTaskRepository struct {
 	addTaskFn    func(title string, done bool) (model.Task, error)
+	getTaskFn    func(id int) (model.Task, error)
 	listTasksFn  func(offset, limit int) ([]model.Task, int, error)
 	updateTaskFn func(id int, title string, done bool) (model.Task, error)
 	deleteTaskFn func(id int) error
@@ -18,6 +19,10 @@ type fakeTaskRepository struct {
 
 func (f *fakeTaskRepository) AddTask(title string, done bool) (model.Task, error) {
 	return f.addTaskFn(title, done)
+}
+
+func (f *fakeTaskRepository) GetTask(id int) (model.Task, error) {
+	return f.getTaskFn(id)
 }
 
 func (f *fakeTaskRepository) ListTasks(offset, limit int) ([]model.Task, int, error) {
@@ -79,6 +84,53 @@ func TestTaskServiceAddTaskError(t *testing.T) {
 	}
 	if got != (model.Task{}) {
 		t.Fatalf("AddTask should return zero-value task on error")
+	}
+}
+
+func TestTaskServiceGetTaskSuccess(t *testing.T) {
+	var gotID int
+	expected := model.Task{ID: 4, Title: "Review PR", Done: false}
+	repo := &fakeTaskRepository{
+		getTaskFn: func(id int) (model.Task, error) {
+			gotID = id
+			return expected, nil
+		},
+	}
+
+	svc := NewTaskService(repo)
+	got, err := svc.GetTask(4)
+	if err != nil {
+		t.Fatalf("GetTask returned unexpected error: %v", err)
+	}
+	if got != expected {
+		t.Fatalf("GetTask returned %+v, expected %+v", got, expected)
+	}
+	if gotID != 4 {
+		t.Fatalf("GetTask forwarded wrong id: %d", gotID)
+	}
+}
+
+func TestTaskServiceGetTaskError(t *testing.T) {
+	repoErr := repository.ErrTaskNotFound
+	repo := &fakeTaskRepository{
+		getTaskFn: func(id int) (model.Task, error) {
+			return model.Task{}, repoErr
+		},
+	}
+
+	svc := NewTaskService(repo)
+	got, err := svc.GetTask(99)
+	if err == nil {
+		t.Fatal("GetTask expected error, got nil")
+	}
+	if !errors.Is(err, repoErr) {
+		t.Fatalf("GetTask error should wrap repo error")
+	}
+	if !strings.Contains(err.Error(), "get task:") {
+		t.Fatalf("GetTask error missing context, got: %v", err)
+	}
+	if got != (model.Task{}) {
+		t.Fatalf("GetTask should return zero-value task on error")
 	}
 }
 

@@ -27,6 +27,11 @@ type updateTaskRequest struct {
 	Done  bool   `json:"done" example:"true"`
 }
 
+type patchTaskRequest struct {
+	Title *string `json:"title" example:"Buy milk"`
+	Done  *bool   `json:"done" example:"true"`
+}
+
 func NewTaskHandler(taskService *service.TaskService, paginationConfig *config.PaginationConfig) *TaskHandler {
 	return &TaskHandler{taskService: taskService, paginationConfig: paginationConfig}
 }
@@ -150,9 +155,9 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// UpdateTask godoc
-// @Summary      Update an existing task
-// @Description  Modify a task by ID
+// ReplaceTask godoc
+// @Summary      Replace an existing task
+// @Description  Replace all task fields by ID
 // @Tags         tasks
 // @Accept       json
 // @Param        id    path  int                    true  "Task ID"
@@ -163,7 +168,7 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 // @Failure      404  {object}  map[string]string  "Task not found"
 // @Failure      500  {object}  map[string]string  "Database error"
 // @Router       /tasks/{id} [put]
-func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
+func (h *TaskHandler) ReplaceTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	id, err := parseTaskID(r)
@@ -184,6 +189,80 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updatedTask, err := h.taskService.UpdateTask(id, req.Title, req.Done)
+	if err != nil {
+		if errors.Is(err, repository.ErrTaskNotFound) {
+			http.Error(w, "task not found", http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, "failed to update task", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(updatedTask); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+// UpdateTask godoc
+// @Summary      Partially update an existing task
+// @Description  Modify one or more task fields by ID
+// @Tags         tasks
+// @Accept       json
+// @Param        id    path  int               true  "Task ID"
+// @Param        body  body  patchTaskRequest  true  "Fields to update"
+// @Produce      json
+// @Success      200  {object}  model.Task
+// @Failure      400  {object}  map[string]string  "Invalid ID or request"
+// @Failure      404  {object}  map[string]string  "Task not found"
+// @Failure      500  {object}  map[string]string  "Database error"
+// @Router       /tasks/{id} [patch]
+func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	id, err := parseTaskID(r)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var req patchTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Title == nil && req.Done == nil {
+		http.Error(w, "at least one field is required", http.StatusBadRequest)
+		return
+	}
+
+	currentTask, err := h.taskService.GetTask(id)
+	if err != nil {
+		if errors.Is(err, repository.ErrTaskNotFound) {
+			http.Error(w, "task not found", http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, "failed to get task", http.StatusInternalServerError)
+		return
+	}
+
+	if req.Title != nil {
+		if *req.Title == "" {
+			http.Error(w, "title cannot be empty", http.StatusBadRequest)
+			return
+		}
+		currentTask.Title = *req.Title
+	}
+	if req.Done != nil {
+		currentTask.Done = *req.Done
+	}
+
+	updatedTask, err := h.taskService.UpdateTask(id, currentTask.Title, currentTask.Done)
 	if err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
 			http.Error(w, "task not found", http.StatusNotFound)

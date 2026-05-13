@@ -4,17 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/config"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/model"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/repository"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/service"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 type fakeHandlerRepository struct {
 	addTaskFn    func(title string, done bool) (model.Task, error)
+	getTaskFn    func(id int) (model.Task, error)
 	listTasksFn  func(offset, limit int) ([]model.Task, int, error)
 	updateTaskFn func(id int, title string, done bool) (model.Task, error)
 	deleteTaskFn func(id int) error
@@ -23,34 +25,47 @@ type fakeHandlerRepository struct {
 func (f *fakeHandlerRepository) AddTask(title string, done bool) (model.Task, error) {
 	return f.addTaskFn(title, done)
 }
+
+func (f *fakeHandlerRepository) GetTask(id int) (model.Task, error) {
+	return f.getTaskFn(id)
+}
+
 func (f *fakeHandlerRepository) ListTasks(offset, limit int) ([]model.Task, int, error) {
 	return f.listTasksFn(offset, limit)
 }
+
 func (f *fakeHandlerRepository) UpdateTask(id int, title string, done bool) (model.Task, error) {
 	return f.updateTaskFn(id, title, done)
 }
+
 func (f *fakeHandlerRepository) DeleteTask(id int) error {
 	return f.deleteTaskFn(id)
 }
+
 func newTestService(addFn func(string, bool) (model.Task, error),
+	getFn func(int) (model.Task, error),
 	listFn func(int, int) ([]model.Task, int, error),
 	updateFn func(int, string, bool) (model.Task, error),
 	deleteFn func(int) error) *service.TaskService {
 	fakeRepo := &fakeHandlerRepository{
 		addTaskFn:    addFn,
+		getTaskFn:    getFn,
 		listTasksFn:  listFn,
 		updateTaskFn: updateFn,
 		deleteTaskFn: deleteFn,
 	}
 	return service.NewTaskService(fakeRepo)
 }
+
 func newTestHandler(svc *service.TaskService) *TaskHandler {
 	paginationCfg := &config.PaginationConfig{DefaultLimit: 20, MaxLimit: 100}
 	return NewTaskHandler(svc, paginationCfg)
 }
+
 func TestGetTasksSuccess(t *testing.T) {
 	expected := []model.Task{{ID: 1, Title: "Task A", Done: false}, {ID: 2, Title: "Task B", Done: true}}
 	svc := newTestService(
+		nil,
 		nil,
 		func(offset, limit int) ([]model.Task, int, error) {
 			return expected, 2, nil
@@ -82,8 +97,10 @@ func TestGetTasksSuccess(t *testing.T) {
 		t.Fatalf("GetTasks returned %d tasks, expected %d", len(got.Data), len(expected))
 	}
 }
+
 func TestGetTasksWithPagination(t *testing.T) {
 	svc := newTestService(
+		nil,
 		nil,
 		func(offset, limit int) ([]model.Task, int, error) {
 			if offset != 10 || limit != 5 {
@@ -115,8 +132,9 @@ func TestGetTasksWithPagination(t *testing.T) {
 		t.Fatalf("GetTasks total is %d, expected 50", got.Total)
 	}
 }
+
 func TestGetTasksInvalidLimit(t *testing.T) {
-	svc := newTestService(nil, nil, nil, nil)
+	svc := newTestService(nil, nil, nil, nil, nil)
 	handler := newTestHandler(svc)
 	req := httptest.NewRequest("GET", "/tasks?limit=101", nil)
 	w := httptest.NewRecorder()
@@ -125,8 +143,9 @@ func TestGetTasksInvalidLimit(t *testing.T) {
 		t.Fatalf("GetTasks with limit>max returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
 }
+
 func TestGetTasksInvalidOffset(t *testing.T) {
-	svc := newTestService(nil, nil, nil, nil)
+	svc := newTestService(nil, nil, nil, nil, nil)
 	handler := newTestHandler(svc)
 	req := httptest.NewRequest("GET", "/tasks?offset=-1", nil)
 	w := httptest.NewRecorder()
@@ -135,8 +154,10 @@ func TestGetTasksInvalidOffset(t *testing.T) {
 		t.Fatalf("GetTasks with negative offset returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
 }
+
 func TestGetTasksError(t *testing.T) {
 	svc := newTestService(
+		nil,
 		nil,
 		func(offset, limit int) ([]model.Task, int, error) { return nil, 0, errors.New("db error") },
 		nil,
@@ -150,12 +171,14 @@ func TestGetTasksError(t *testing.T) {
 		t.Fatalf("GetTasks returned status %d, expected %d", w.Code, http.StatusInternalServerError)
 	}
 }
+
 func TestCreateTaskSuccess(t *testing.T) {
 	expected := model.Task{ID: 1, Title: "New Task", Done: false}
 	svc := newTestService(
 		func(title string, done bool) (model.Task, error) {
 			return expected, nil
 		},
+		nil,
 		nil,
 		nil,
 		nil,
@@ -179,8 +202,9 @@ func TestCreateTaskSuccess(t *testing.T) {
 		t.Fatalf("CreateTask returned %+v, expected %+v", got, expected)
 	}
 }
+
 func TestCreateTaskInvalidBody(t *testing.T) {
-	svc := newTestService(nil, nil, nil, nil)
+	svc := newTestService(nil, nil, nil, nil, nil)
 	handler := newTestHandler(svc)
 	req := httptest.NewRequest("POST", "/tasks", bytes.NewReader([]byte("invalid json")))
 	w := httptest.NewRecorder()
@@ -189,8 +213,9 @@ func TestCreateTaskInvalidBody(t *testing.T) {
 		t.Fatalf("CreateTask with invalid body returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
 }
+
 func TestCreateTaskEmptyTitle(t *testing.T) {
-	svc := newTestService(nil, nil, nil, nil)
+	svc := newTestService(nil, nil, nil, nil, nil)
 	handler := newTestHandler(svc)
 	body := []byte(`{"title":"","done":false}`)
 	req := httptest.NewRequest("POST", "/tasks", bytes.NewReader(body))
@@ -200,11 +225,13 @@ func TestCreateTaskEmptyTitle(t *testing.T) {
 		t.Fatalf("CreateTask with empty title returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
 }
+
 func TestCreateTaskServiceError(t *testing.T) {
 	svc := newTestService(
 		func(title string, done bool) (model.Task, error) {
 			return model.Task{}, errors.New("db error")
 		},
+		nil,
 		nil,
 		nil,
 		nil,
@@ -218,9 +245,11 @@ func TestCreateTaskServiceError(t *testing.T) {
 		t.Fatalf("CreateTask with service error returned status %d, expected %d", w.Code, http.StatusInternalServerError)
 	}
 }
-func TestUpdateTaskSuccess(t *testing.T) {
+
+func TestReplaceTaskSuccess(t *testing.T) {
 	expected := model.Task{ID: 5, Title: "Updated", Done: true}
 	svc := newTestService(
+		nil,
 		nil,
 		nil,
 		func(id int, title string, done bool) (model.Task, error) {
@@ -233,55 +262,60 @@ func TestUpdateTaskSuccess(t *testing.T) {
 	req := httptest.NewRequest("PUT", "/tasks/5", bytes.NewReader(body))
 	req.SetPathValue("id", "5")
 	w := httptest.NewRecorder()
-	handler.UpdateTask(w, req)
+	handler.ReplaceTask(w, req)
 	if w.Code != http.StatusOK {
-		t.Fatalf("UpdateTask returned status %d, expected %d", w.Code, http.StatusOK)
+		t.Fatalf("ReplaceTask returned status %d, expected %d", w.Code, http.StatusOK)
 	}
 	var got model.Task
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
 	if got != expected {
-		t.Fatalf("UpdateTask returned %+v, expected %+v", got, expected)
+		t.Fatalf("ReplaceTask returned %+v, expected %+v", got, expected)
 	}
 }
-func TestUpdateTaskInvalidID(t *testing.T) {
-	svc := newTestService(nil, nil, nil, nil)
+
+func TestReplaceTaskInvalidID(t *testing.T) {
+	svc := newTestService(nil, nil, nil, nil, nil)
 	handler := newTestHandler(svc)
 	body := []byte(`{"title":"X","done":false}`)
 	req := httptest.NewRequest("PUT", "/tasks/invalid", bytes.NewReader(body))
 	req.SetPathValue("id", "invalid")
 	w := httptest.NewRecorder()
-	handler.UpdateTask(w, req)
+	handler.ReplaceTask(w, req)
 	if w.Code != http.StatusBadRequest {
-		t.Fatalf("UpdateTask with invalid ID returned status %d, expected %d", w.Code, http.StatusBadRequest)
+		t.Fatalf("ReplaceTask with invalid ID returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
 }
-func TestUpdateTaskInvalidBody(t *testing.T) {
-	svc := newTestService(nil, nil, nil, nil)
+
+func TestReplaceTaskInvalidBody(t *testing.T) {
+	svc := newTestService(nil, nil, nil, nil, nil)
 	handler := newTestHandler(svc)
 	req := httptest.NewRequest("PUT", "/tasks/1", bytes.NewReader([]byte("invalid")))
 	req.SetPathValue("id", "1")
 	w := httptest.NewRecorder()
-	handler.UpdateTask(w, req)
+	handler.ReplaceTask(w, req)
 	if w.Code != http.StatusBadRequest {
-		t.Fatalf("UpdateTask with invalid body returned status %d, expected %d", w.Code, http.StatusBadRequest)
+		t.Fatalf("ReplaceTask with invalid body returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
 }
-func TestUpdateTaskEmptyTitle(t *testing.T) {
-	svc := newTestService(nil, nil, nil, nil)
+
+func TestReplaceTaskEmptyTitle(t *testing.T) {
+	svc := newTestService(nil, nil, nil, nil, nil)
 	handler := newTestHandler(svc)
 	body := []byte(`{"title":"","done":false}`)
 	req := httptest.NewRequest("PUT", "/tasks/1", bytes.NewReader(body))
 	req.SetPathValue("id", "1")
 	w := httptest.NewRecorder()
-	handler.UpdateTask(w, req)
+	handler.ReplaceTask(w, req)
 	if w.Code != http.StatusBadRequest {
-		t.Fatalf("UpdateTask with empty title returned status %d, expected %d", w.Code, http.StatusBadRequest)
+		t.Fatalf("ReplaceTask with empty title returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
 }
-func TestUpdateTaskNotFound(t *testing.T) {
+
+func TestReplaceTaskNotFound(t *testing.T) {
 	svc := newTestService(
+		nil,
 		nil,
 		nil,
 		func(id int, title string, done bool) (model.Task, error) {
@@ -294,13 +328,15 @@ func TestUpdateTaskNotFound(t *testing.T) {
 	req := httptest.NewRequest("PUT", "/tasks/99", bytes.NewReader(body))
 	req.SetPathValue("id", "99")
 	w := httptest.NewRecorder()
-	handler.UpdateTask(w, req)
+	handler.ReplaceTask(w, req)
 	if w.Code != http.StatusNotFound {
-		t.Fatalf("UpdateTask with not found error returned status %d, expected %d", w.Code, http.StatusNotFound)
+		t.Fatalf("ReplaceTask with not found error returned status %d, expected %d", w.Code, http.StatusNotFound)
 	}
 }
-func TestUpdateTaskServiceError(t *testing.T) {
+
+func TestReplaceTaskServiceError(t *testing.T) {
 	svc := newTestService(
+		nil,
 		nil,
 		nil,
 		func(id int, title string, done bool) (model.Task, error) {
@@ -313,13 +349,69 @@ func TestUpdateTaskServiceError(t *testing.T) {
 	req := httptest.NewRequest("PUT", "/tasks/1", bytes.NewReader(body))
 	req.SetPathValue("id", "1")
 	w := httptest.NewRecorder()
-	handler.UpdateTask(w, req)
+	handler.ReplaceTask(w, req)
 	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("UpdateTask with service error returned status %d, expected %d", w.Code, http.StatusInternalServerError)
+		t.Fatalf("ReplaceTask with service error returned status %d, expected %d", w.Code, http.StatusInternalServerError)
 	}
 }
+
+func TestUpdateTaskPatchDoneOnlySuccess(t *testing.T) {
+	var updatedTitle string
+	var updatedDone bool
+
+	expected := model.Task{ID: 8, Title: "Existing", Done: true}
+	svc := newTestService(
+		nil,
+		func(id int) (model.Task, error) {
+			return model.Task{ID: id, Title: "Existing", Done: false}, nil
+		},
+		nil,
+		func(id int, title string, done bool) (model.Task, error) {
+			updatedTitle = title
+			updatedDone = done
+			return expected, nil
+		},
+		nil,
+	)
+	handler := newTestHandler(svc)
+	body := []byte(`{"done":true}`)
+	req := httptest.NewRequest("PATCH", "/tasks/8", bytes.NewReader(body))
+	req.SetPathValue("id", "8")
+	w := httptest.NewRecorder()
+	handler.UpdateTask(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("UpdateTask PATCH returned status %d, expected %d", w.Code, http.StatusOK)
+	}
+	if updatedTitle != "Existing" || !updatedDone {
+		t.Fatalf("PATCH should preserve title and update done, got title=%q done=%t", updatedTitle, updatedDone)
+	}
+
+	var got model.Task
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if got != expected {
+		t.Fatalf("UpdateTask PATCH returned %+v, expected %+v", got, expected)
+	}
+}
+
+func TestUpdateTaskPatchWithoutFields(t *testing.T) {
+	svc := newTestService(nil, nil, nil, nil, nil)
+	handler := newTestHandler(svc)
+	req := httptest.NewRequest("PATCH", "/tasks/1", bytes.NewReader([]byte(`{}`)))
+	req.SetPathValue("id", "1")
+	w := httptest.NewRecorder()
+	handler.UpdateTask(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("UpdateTask PATCH without fields returned status %d, expected %d", w.Code, http.StatusBadRequest)
+	}
+}
+
 func TestDeleteTaskSuccess(t *testing.T) {
 	svc := newTestService(
+		nil,
 		nil,
 		nil,
 		nil,
@@ -339,8 +431,9 @@ func TestDeleteTaskSuccess(t *testing.T) {
 		t.Fatalf("DeleteTask should return empty body, got %q", w.Body.String())
 	}
 }
+
 func TestDeleteTaskInvalidID(t *testing.T) {
-	svc := newTestService(nil, nil, nil, nil)
+	svc := newTestService(nil, nil, nil, nil, nil)
 	handler := newTestHandler(svc)
 	req := httptest.NewRequest("DELETE", "/tasks/invalid", nil)
 	req.SetPathValue("id", "invalid")
@@ -350,8 +443,10 @@ func TestDeleteTaskInvalidID(t *testing.T) {
 		t.Fatalf("DeleteTask with invalid ID returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
 }
+
 func TestDeleteTaskNotFound(t *testing.T) {
 	svc := newTestService(
+		nil,
 		nil,
 		nil,
 		nil,
@@ -368,8 +463,10 @@ func TestDeleteTaskNotFound(t *testing.T) {
 		t.Fatalf("DeleteTask with not found error returned status %d, expected %d", w.Code, http.StatusNotFound)
 	}
 }
+
 func TestDeleteTaskServiceError(t *testing.T) {
 	svc := newTestService(
+		nil,
 		nil,
 		nil,
 		nil,

@@ -63,7 +63,8 @@ func main() {
 	mux.HandleFunc("POST /tasks", taskHandler.CreateTask)
 	mux.HandleFunc("GET /tasks", taskHandler.GetTasks)
 	mux.HandleFunc("GET /tasks/{id}", taskHandler.GetTask)
-	mux.HandleFunc("PUT /tasks/{id}", taskHandler.UpdateTask)
+	mux.HandleFunc("PUT /tasks/{id}", taskHandler.ReplaceTask)
+	mux.HandleFunc("PATCH /tasks/{id}", taskHandler.UpdateTask)
 	mux.HandleFunc("DELETE /tasks/{id}", taskHandler.DeleteTask)
 
 	log.Println("Server running on :8080")

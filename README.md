@@ -4,7 +4,7 @@ Simple REST API in Go.
 
 ## Current status
 
-- `GET /tasks`, `POST /tasks`, `PUT /tasks/{id}` and `DELETE /tasks/{id}` are implemented.
+- `GET /tasks`, `GET /tasks/{id}`, `POST /tasks`, `PUT /tasks/{id}`, `PATCH /tasks/{id}` and `DELETE /tasks/{id}` are implemented.
 - Task persistence uses SQLite through repository layer (`internal/repository/sqlite_task_repository.go`).
 - The `tasks` table is created automatically at startup.
 - Swagger / OpenAPI is available through `swaggo/swag`.
@@ -12,8 +12,10 @@ Simple REST API in Go.
 ## Endpoints
 
 - `GET /tasks`
+- `GET /tasks/{id}`
 - `POST /tasks`
 - `PUT /tasks/{id}`
+- `PATCH /tasks/{id}`
 - `DELETE /tasks/{id}`
 
 ### Pagination
