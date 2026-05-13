@@ -9,6 +9,8 @@ import (
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/model"
 )
 
+const sqliteDateTimeLayout = "2006-01-02 15:04:05"
+
 type SQLiteTaskRepository struct {
 	db           *sql.DB
 	queryTimeout time.Duration
@@ -22,7 +24,12 @@ func (r *SQLiteTaskRepository) AddTask(ctx context.Context, title string, done b
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
-	result, err := r.db.ExecContext(ctx, "INSERT INTO tasks (title, done) VALUES (?, ?)", title, boolToSQLite(done))
+	result, err := r.db.ExecContext(
+		ctx,
+		"INSERT INTO tasks (title, done, created_at, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+		title,
+		boolToSQLite(done),
+	)
 	if err != nil {
 		return model.Task{}, fmt.Errorf("insert task: %w", err)
 	}
@@ -32,7 +39,12 @@ func (r *SQLiteTaskRepository) AddTask(ctx context.Context, title string, done b
 		return model.Task{}, fmt.Errorf("get inserted task id: %w", err)
 	}
 
-	return model.Task{ID: int(id), Title: title, Done: done}, nil
+	task, err := r.GetTask(ctx, int(id))
+	if err != nil {
+		return model.Task{}, fmt.Errorf("fetch inserted task: %w", err)
+	}
+
+	return task, nil
 }
 
 func (r *SQLiteTaskRepository) GetTask(ctx context.Context, id int) (model.Task, error) {
@@ -41,7 +53,13 @@ func (r *SQLiteTaskRepository) GetTask(ctx context.Context, id int) (model.Task,
 
 	var task model.Task
 	var done int
-	err := r.db.QueryRowContext(ctx, "SELECT id, title, done FROM tasks WHERE id = ?", id).Scan(&task.ID, &task.Title, &done)
+	var createdAtRaw string
+	var updatedAtRaw string
+	err := r.db.QueryRowContext(
+		ctx,
+		"SELECT id, title, done, created_at, updated_at FROM tasks WHERE id = ?",
+		id,
+	).Scan(&task.ID, &task.Title, &done, &createdAtRaw, &updatedAtRaw)
 	if err == sql.ErrNoRows {
 		return model.Task{}, ErrTaskNotFound
 	}
@@ -49,6 +67,14 @@ func (r *SQLiteTaskRepository) GetTask(ctx context.Context, id int) (model.Task,
 		return model.Task{}, fmt.Errorf("get task: %w", err)
 	}
 	task.Done = done == 1
+	task.CreatedAt, err = parseSQLiteTimestamp(createdAtRaw)
+	if err != nil {
+		return model.Task{}, fmt.Errorf("parse created_at: %w", err)
+	}
+	task.UpdatedAt, err = parseSQLiteTimestamp(updatedAtRaw)
+	if err != nil {
+		return model.Task{}, fmt.Errorf("parse updated_at: %w", err)
+	}
 
 	return task, nil
 }
@@ -63,7 +89,7 @@ func (r *SQLiteTaskRepository) ListTasks(ctx context.Context, offset, limit int)
 		return nil, 0, fmt.Errorf("count tasks: %w", countErr)
 	}
 
-	rows, err := r.db.QueryContext(ctx, "SELECT id, title, done FROM tasks ORDER BY id LIMIT ? OFFSET ?", limit, offset)
+	rows, err := r.db.QueryContext(ctx, "SELECT id, title, done, created_at, updated_at FROM tasks ORDER BY id LIMIT ? OFFSET ?", limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("query tasks: %w", err)
 	}
@@ -73,10 +99,20 @@ func (r *SQLiteTaskRepository) ListTasks(ctx context.Context, offset, limit int)
 	for rows.Next() {
 		var task model.Task
 		var done int
-		if err := rows.Scan(&task.ID, &task.Title, &done); err != nil {
+		var createdAtRaw string
+		var updatedAtRaw string
+		if err := rows.Scan(&task.ID, &task.Title, &done, &createdAtRaw, &updatedAtRaw); err != nil {
 			return nil, 0, fmt.Errorf("scan task: %w", err)
 		}
 		task.Done = done == 1
+		task.CreatedAt, err = parseSQLiteTimestamp(createdAtRaw)
+		if err != nil {
+			return nil, 0, fmt.Errorf("parse created_at: %w", err)
+		}
+		task.UpdatedAt, err = parseSQLiteTimestamp(updatedAtRaw)
+		if err != nil {
+			return nil, 0, fmt.Errorf("parse updated_at: %w", err)
+		}
 		tasks = append(tasks, task)
 	}
 
@@ -91,7 +127,7 @@ func (r *SQLiteTaskRepository) UpdateTask(ctx context.Context, id int, title str
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
-	result, err := r.db.ExecContext(ctx, "UPDATE tasks SET title = ?, done = ? WHERE id = ?", title, boolToSQLite(done), id)
+	result, err := r.db.ExecContext(ctx, "UPDATE tasks SET title = ?, done = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", title, boolToSQLite(done), id)
 	if err != nil {
 		return model.Task{}, fmt.Errorf("update task: %w", err)
 	}
@@ -104,7 +140,12 @@ func (r *SQLiteTaskRepository) UpdateTask(ctx context.Context, id int, title str
 		return model.Task{}, ErrTaskNotFound
 	}
 
-	return model.Task{ID: id, Title: title, Done: done}, nil
+	task, err := r.GetTask(ctx, id)
+	if err != nil {
+		return model.Task{}, fmt.Errorf("fetch updated task: %w", err)
+	}
+
+	return task, nil
 }
 
 func (r *SQLiteTaskRepository) DeleteTask(ctx context.Context, id int) error {
@@ -133,4 +174,18 @@ func boolToSQLite(done bool) int {
 	}
 
 	return 0
+}
+
+func parseSQLiteTimestamp(raw string) (time.Time, error) {
+	if t, err := time.Parse(sqliteDateTimeLayout, raw); err == nil {
+		return t.UTC(), nil
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		return t.UTC(), nil
+	}
+	if t, err := time.Parse(time.RFC3339Nano, raw); err == nil {
+		return t.UTC(), nil
+	}
+
+	return time.Time{}, fmt.Errorf("unsupported timestamp format: %q", raw)
 }
