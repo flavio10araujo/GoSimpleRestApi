@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/config"
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/model"
@@ -192,6 +193,52 @@ func TestGetTasksError(t *testing.T) {
 		t.Fatalf("GetTasks returned status %d, expected %d", w.Code, http.StatusInternalServerError)
 	}
 	assertJSONError(t, w, "failed to list tasks")
+}
+
+func TestGetTaskSuccessReturnsDTOWithoutTimestamps(t *testing.T) {
+	now := time.Now().UTC()
+	svc := newTestService(
+		nil,
+		func(_ context.Context, id int) (model.Task, error) {
+			return model.Task{ID: id, Title: "Task A", Done: true, CreatedAt: now, UpdatedAt: now}, nil
+		},
+		nil,
+		nil,
+		nil,
+	)
+	handler := newTestHandler(svc)
+	req := httptest.NewRequest("GET", "/tasks/1", nil)
+	req.SetPathValue("id", "1")
+	w := httptest.NewRecorder()
+
+	handler.GetTask(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GetTask returned status %d, expected %d", w.Code, http.StatusOK)
+	}
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("GetTask Content-Type is %q, expected application/json", ct)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("Failed to unmarshal response: %v", err)
+	}
+	if _, ok := got["created_at"]; ok {
+		t.Fatalf("GetTask response should not include created_at")
+	}
+	if _, ok := got["updated_at"]; ok {
+		t.Fatalf("GetTask response should not include updated_at")
+	}
+	if got["id"] != float64(1) {
+		t.Fatalf("GetTask id is %v, expected 1", got["id"])
+	}
+	if got["title"] != "Task A" {
+		t.Fatalf("GetTask title is %v, expected Task A", got["title"])
+	}
+	if got["done"] != true {
+		t.Fatalf("GetTask done is %v, expected true", got["done"])
+	}
 }
 
 func TestCreateTaskSuccess(t *testing.T) {

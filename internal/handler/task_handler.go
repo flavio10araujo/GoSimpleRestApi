@@ -124,7 +124,7 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 // @Tags         tasks
 // @Param        id  path  int  true  "Task ID"
 // @Produce      json
-// @Success      200  {object}  model.Task
+// @Success      200  {object}  TaskResponse
 // @Failure      400  {object}  ErrorResponse  "Invalid ID"
 // @Failure      404  {object}  ErrorResponse  "Task not found"
 // @Failure      500  {object}  ErrorResponse  "Database error"
@@ -150,7 +150,7 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(task); err != nil {
+	if err := json.NewEncoder(w).Encode(toTaskResponse(task)); err != nil {
 		writeErrorJSON(w, http.StatusInternalServerError, "failed to encode response")
 	}
 }

@@ -14,8 +14,18 @@ type PaginatedResponse struct {
 	Limit  int          `json:"limit"`
 }
 
+type TaskResponse struct {
+	ID    int    `json:"id"`
+	Title string `json:"title"`
+	Done  bool   `json:"done"`
+}
+
 type ErrorResponse struct {
 	Error string `json:"error"`
+}
+
+func toTaskResponse(task model.Task) TaskResponse {
+	return TaskResponse{ID: task.ID, Title: task.Title, Done: task.Done}
 }
 
 func writeErrorJSON(w http.ResponseWriter, status int, message string) {
