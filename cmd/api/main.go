@@ -1,8 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 
@@ -83,5 +89,29 @@ func main() {
 
 	log.Printf("Server running on %s", serverConfig.Address())
 	log.Printf("Swagger UI available at http://localhost:%s/swagger/index.html", serverConfig.Port)
-	log.Fatal(server.ListenAndServe())
+
+	// Channel to capture OS signals for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start server in a separate goroutine
+	go func() {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("server error: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	sig := <-sigChan
+	log.Printf("received signal: %v, initiating graceful shutdown", sig)
+
+	// Graceful shutdown with 30-second timeout for in-flight requests
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Printf("shutdown error: %v", err)
+	}
+
+	log.Println("server stopped")
 }

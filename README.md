@@ -109,3 +109,14 @@ go run ./...
 $env:PORT = "9090"
 go run ./...
 ```
+
+## Graceful Shutdown
+
+The server implements graceful shutdown. When receiving `SIGINT` (Ctrl+C) or `SIGTERM` signals, it:
+
+1. Stops accepting new connections
+2. Allows in-flight requests up to 30 seconds to complete
+3. Closes database connections
+4. Exits cleanly
+
+Test graceful shutdown by pressing Ctrl+C while the server is running.
