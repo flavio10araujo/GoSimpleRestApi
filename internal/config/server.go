@@ -14,6 +14,7 @@ type ServerConfig struct {
 	WriteTimeout      time.Duration
 	IdleTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
+	QueryTimeout      time.Duration
 }
 
 func LoadServerConfig() (*ServerConfig, error) {
@@ -39,6 +40,10 @@ func LoadServerConfig() (*ServerConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("invalid IDLE_TIMEOUT: %w", err)
 	}
+	queryTimeout, err := parseDurationEnv("QUERY_TIMEOUT", 3*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("invalid QUERY_TIMEOUT: %w", err)
+	}
 
 	return &ServerConfig{
 		Host:              host,
@@ -47,6 +52,7 @@ func LoadServerConfig() (*ServerConfig, error) {
 		WriteTimeout:      writeTimeout,
 		IdleTimeout:       idleTimeout,
 		ReadHeaderTimeout: readHeaderTimeout,
+		QueryTimeout:      queryTimeout,
 	}, nil
 }
 

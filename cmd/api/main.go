@@ -56,7 +56,7 @@ func main() {
 	log.Printf("Pagination: default_limit=%d, max_limit=%d", paginationConfig.DefaultLimit, paginationConfig.MaxLimit)
 
 	mux := http.NewServeMux()
-	taskRepository := repository.NewSQLiteTaskRepository(sqliteDB)
+	taskRepository := repository.NewSQLiteTaskRepository(sqliteDB, serverConfig.QueryTimeout)
 	taskService := service.NewTaskService(taskRepository)
 	taskHandler := handler.NewTaskHandler(taskService, paginationConfig)
 

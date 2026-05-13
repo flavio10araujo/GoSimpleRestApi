@@ -10,15 +10,16 @@ import (
 )
 
 type SQLiteTaskRepository struct {
-	db *sql.DB
+	db           *sql.DB
+	queryTimeout time.Duration
 }
 
-func NewSQLiteTaskRepository(db *sql.DB) *SQLiteTaskRepository {
-	return &SQLiteTaskRepository{db: db}
+func NewSQLiteTaskRepository(db *sql.DB, queryTimeout time.Duration) *SQLiteTaskRepository {
+	return &SQLiteTaskRepository{db: db, queryTimeout: queryTimeout}
 }
 
 func (r *SQLiteTaskRepository) AddTask(ctx context.Context, title string, done bool) (model.Task, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
 	result, err := r.db.ExecContext(ctx, "INSERT INTO tasks (title, done) VALUES (?, ?)", title, boolToSQLite(done))
@@ -35,7 +36,7 @@ func (r *SQLiteTaskRepository) AddTask(ctx context.Context, title string, done b
 }
 
 func (r *SQLiteTaskRepository) GetTask(ctx context.Context, id int) (model.Task, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
 	var task model.Task
@@ -53,7 +54,7 @@ func (r *SQLiteTaskRepository) GetTask(ctx context.Context, id int) (model.Task,
 }
 
 func (r *SQLiteTaskRepository) ListTasks(ctx context.Context, offset, limit int) ([]model.Task, int, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
 	var total int
@@ -87,7 +88,7 @@ func (r *SQLiteTaskRepository) ListTasks(ctx context.Context, offset, limit int)
 }
 
 func (r *SQLiteTaskRepository) UpdateTask(ctx context.Context, id int, title string, done bool) (model.Task, error) {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
 	result, err := r.db.ExecContext(ctx, "UPDATE tasks SET title = ?, done = ? WHERE id = ?", title, boolToSQLite(done), id)
@@ -107,7 +108,7 @@ func (r *SQLiteTaskRepository) UpdateTask(ctx context.Context, id int, title str
 }
 
 func (r *SQLiteTaskRepository) DeleteTask(ctx context.Context, id int) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
 	result, err := r.db.ExecContext(ctx, "DELETE FROM tasks WHERE id = ?", id)

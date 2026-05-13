@@ -82,6 +82,7 @@ The app also reads server settings from environment.
 - `READ_TIMEOUT` (default: `10s`)
 - `WRITE_TIMEOUT` (default: `15s`)
 - `IDLE_TIMEOUT` (default: `60s`)
+- `QUERY_TIMEOUT` (default: `3s`) — SQL query timeout per operation
 
 ## Run
 
