@@ -34,6 +34,24 @@ func (r *SQLiteTaskRepository) AddTask(title string, done bool) (model.Task, err
 	return model.Task{ID: int(id), Title: title, Done: done}, nil
 }
 
+func (r *SQLiteTaskRepository) GetTask(id int) (model.Task, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	var task model.Task
+	var done int
+	err := r.db.QueryRowContext(ctx, "SELECT id, title, done FROM tasks WHERE id = ?", id).Scan(&task.ID, &task.Title, &done)
+	if err == sql.ErrNoRows {
+		return model.Task{}, ErrTaskNotFound
+	}
+	if err != nil {
+		return model.Task{}, fmt.Errorf("get task: %w", err)
+	}
+	task.Done = done == 1
+
+	return task, nil
+}
+
 func (r *SQLiteTaskRepository) ListTasks(offset, limit int) ([]model.Task, int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

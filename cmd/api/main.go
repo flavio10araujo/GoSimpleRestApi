@@ -60,8 +60,9 @@ func main() {
 		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
 	))
 
-	mux.HandleFunc("GET /tasks", taskHandler.GetTasks)
 	mux.HandleFunc("POST /tasks", taskHandler.CreateTask)
+	mux.HandleFunc("GET /tasks", taskHandler.GetTasks)
+	mux.HandleFunc("GET /tasks/{id}", taskHandler.GetTask)
 	mux.HandleFunc("PUT /tasks/{id}", taskHandler.UpdateTask)
 	mux.HandleFunc("DELETE /tasks/{id}", taskHandler.DeleteTask)
 

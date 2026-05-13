@@ -31,6 +31,45 @@ func NewTaskHandler(taskService *service.TaskService, paginationConfig *config.P
 	return &TaskHandler{taskService: taskService, paginationConfig: paginationConfig}
 }
 
+// CreateTask godoc
+// @Summary      Create a new task
+// @Description  Add a new task to the database
+// @Tags         tasks
+// @Accept       json
+// @Param        body  body  createTaskRequest  true  "Task data"
+// @Produce      json
+// @Success      201  {object}  model.Task
+// @Failure      400  {object}  map[string]string  "Missing title or invalid JSON"
+// @Failure      500  {object}  map[string]string  "Database error"
+// @Router       /tasks [post]
+func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	var req createTaskRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Title == "" {
+		http.Error(w, "title is required", http.StatusBadRequest)
+		return
+	}
+
+	createdTask, err := h.taskService.AddTask(req.Title, req.Done)
+	if err != nil {
+		http.Error(w, "failed to create task", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+
+	if err := json.NewEncoder(w).Encode(createdTask); err != nil {
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+	}
+}
+
 // GetTasks godoc
 // @Summary      List all tasks with pagination
 // @Description  Retrieve paginated list of tasks from the database
@@ -74,41 +113,39 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// CreateTask godoc
-// @Summary      Create a new task
-// @Description  Add a new task to the database
+// GetTask godoc
+// @Summary      Get a task by ID
+// @Description  Retrieve a single task by its ID
 // @Tags         tasks
-// @Accept       json
-// @Param        body  body  createTaskRequest  true  "Task data"
+// @Param        id  path  int  true  "Task ID"
 // @Produce      json
-// @Success      201  {object}  model.Task
-// @Failure      400  {object}  map[string]string  "Missing title or invalid JSON"
+// @Success      200  {object}  model.Task
+// @Failure      400  {object}  map[string]string  "Invalid ID"
+// @Failure      404  {object}  map[string]string  "Task not found"
 // @Failure      500  {object}  map[string]string  "Database error"
-// @Router       /tasks [post]
-func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
-	defer r.Body.Close()
-
-	var req createTaskRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if req.Title == "" {
-		http.Error(w, "title is required", http.StatusBadRequest)
-		return
-	}
-
-	createdTask, err := h.taskService.AddTask(req.Title, req.Done)
+// @Router       /tasks/{id} [get]
+func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
+	id, err := parseTaskID(r)
 	if err != nil {
-		http.Error(w, "failed to create task", http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	task, err := h.taskService.GetTask(id)
+	if err != nil {
+		if errors.Is(err, repository.ErrTaskNotFound) {
+			http.Error(w, "task not found", http.StatusNotFound)
+			return
+		}
+
+		http.Error(w, "failed to get task", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(createdTask); err != nil {
+	if err := json.NewEncoder(w).Encode(task); err != nil {
 		http.Error(w, "failed to encode response", http.StatusInternalServerError)
 	}
 }
