@@ -8,10 +8,10 @@ import (
 )
 
 type PaginatedResponse struct {
-	Data   []model.Task `json:"data"`
-	Total  int          `json:"total"`
-	Offset int          `json:"offset"`
-	Limit  int          `json:"limit"`
+	Data   []TaskResponse `json:"data"`
+	Total  int            `json:"total"`
+	Offset int            `json:"offset"`
+	Limit  int            `json:"limit"`
 }
 
 type TaskResponse struct {
@@ -26,6 +26,15 @@ type ErrorResponse struct {
 
 func toTaskResponse(task model.Task) TaskResponse {
 	return TaskResponse{ID: task.ID, Title: task.Title, Done: task.Done}
+}
+
+func toTaskResponses(tasks []model.Task) []TaskResponse {
+	responses := make([]TaskResponse, 0, len(tasks))
+	for _, task := range tasks {
+		responses = append(responses, toTaskResponse(task))
+	}
+
+	return responses
 }
 
 func writeErrorJSON(w http.ResponseWriter, status int, message string) {

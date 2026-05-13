@@ -243,6 +243,7 @@ func TestGetTaskSuccessReturnsDTOWithoutTimestamps(t *testing.T) {
 
 func TestCreateTaskSuccess(t *testing.T) {
 	expected := model.Task{ID: 1, Title: "New Task", Done: false}
+	expectedResponse := TaskResponse{ID: 1, Title: "New Task", Done: false}
 	svc := newTestService(
 		func(_ context.Context, title string, done bool) (model.Task, error) {
 			return expected, nil
@@ -263,12 +264,12 @@ func TestCreateTaskSuccess(t *testing.T) {
 	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
 		t.Fatalf("CreateTask Content-Type is %q, expected application/json", ct)
 	}
-	var got model.Task
+	var got TaskResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
-	if got != expected {
-		t.Fatalf("CreateTask returned %+v, expected %+v", got, expected)
+	if got != expectedResponse {
+		t.Fatalf("CreateTask returned %+v, expected %+v", got, expectedResponse)
 	}
 }
 
@@ -320,6 +321,7 @@ func TestCreateTaskServiceError(t *testing.T) {
 
 func TestReplaceTaskSuccess(t *testing.T) {
 	expected := model.Task{ID: 5, Title: "Updated", Done: true}
+	expectedResponse := TaskResponse{ID: 5, Title: "Updated", Done: true}
 	svc := newTestService(
 		nil,
 		nil,
@@ -338,12 +340,12 @@ func TestReplaceTaskSuccess(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("ReplaceTask returned status %d, expected %d", w.Code, http.StatusOK)
 	}
-	var got model.Task
+	var got TaskResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
-	if got != expected {
-		t.Fatalf("ReplaceTask returned %+v, expected %+v", got, expected)
+	if got != expectedResponse {
+		t.Fatalf("ReplaceTask returned %+v, expected %+v", got, expectedResponse)
 	}
 }
 
@@ -437,6 +439,7 @@ func TestUpdateTaskPatchDoneOnlySuccess(t *testing.T) {
 	var updatedDone bool
 
 	expected := model.Task{ID: 8, Title: "Existing", Done: true}
+	expectedResponse := TaskResponse{ID: 8, Title: "Existing", Done: true}
 	svc := newTestService(
 		nil,
 		func(_ context.Context, id int) (model.Task, error) {
@@ -464,12 +467,12 @@ func TestUpdateTaskPatchDoneOnlySuccess(t *testing.T) {
 		t.Fatalf("PATCH should preserve title and update done, got title=%q done=%t", updatedTitle, updatedDone)
 	}
 
-	var got model.Task
+	var got TaskResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
 	}
-	if got != expected {
-		t.Fatalf("UpdateTask PATCH returned %+v, expected %+v", got, expected)
+	if got != expectedResponse {
+		t.Fatalf("UpdateTask PATCH returned %+v, expected %+v", got, expectedResponse)
 	}
 }
 

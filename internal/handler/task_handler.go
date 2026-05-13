@@ -43,7 +43,7 @@ func NewTaskHandler(taskService *service.TaskService, paginationConfig *config.P
 // @Accept       json
 // @Param        body  body  createTaskRequest  true  "Task data"
 // @Produce      json
-// @Success      201  {object}  model.Task
+// @Success      201  {object}  TaskResponse
 // @Failure      400  {object}  ErrorResponse  "Missing title or invalid JSON"
 // @Failure      500  {object}  ErrorResponse  "Database error"
 // @Router       /tasks [post]
@@ -70,7 +70,7 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
-	if err := json.NewEncoder(w).Encode(createdTask); err != nil {
+	if err := json.NewEncoder(w).Encode(toTaskResponse(createdTask)); err != nil {
 		writeErrorJSON(w, http.StatusInternalServerError, "failed to encode response")
 	}
 }
@@ -107,7 +107,7 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	response := PaginatedResponse{
-		Data:   tasks,
+		Data:   toTaskResponses(tasks),
 		Total:  total,
 		Offset: offset,
 		Limit:  limit,
@@ -163,7 +163,7 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 // @Param        id    path  int                    true  "Task ID"
 // @Param        body  body  updateTaskRequest  true  "Updated task data"
 // @Produce      json
-// @Success      200  {object}  model.Task
+// @Success      200  {object}  TaskResponse
 // @Failure      400  {object}  ErrorResponse  "Invalid ID or request"
 // @Failure      404  {object}  ErrorResponse  "Task not found"
 // @Failure      500  {object}  ErrorResponse  "Database error"
@@ -202,7 +202,7 @@ func (h *TaskHandler) ReplaceTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(updatedTask); err != nil {
+	if err := json.NewEncoder(w).Encode(toTaskResponse(updatedTask)); err != nil {
 		writeErrorJSON(w, http.StatusInternalServerError, "failed to encode response")
 	}
 }
@@ -215,7 +215,7 @@ func (h *TaskHandler) ReplaceTask(w http.ResponseWriter, r *http.Request) {
 // @Param        id    path  int               true  "Task ID"
 // @Param        body  body  patchTaskRequest  true  "Fields to update"
 // @Produce      json
-// @Success      200  {object}  model.Task
+// @Success      200  {object}  TaskResponse
 // @Failure      400  {object}  ErrorResponse  "Invalid ID or request"
 // @Failure      404  {object}  ErrorResponse  "Task not found"
 // @Failure      500  {object}  ErrorResponse  "Database error"
@@ -276,7 +276,7 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	if err := json.NewEncoder(w).Encode(updatedTask); err != nil {
+	if err := json.NewEncoder(w).Encode(toTaskResponse(updatedTask)); err != nil {
 		writeErrorJSON(w, http.StatusInternalServerError, "failed to encode response")
 	}
 }
