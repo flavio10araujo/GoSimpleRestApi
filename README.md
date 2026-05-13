@@ -72,6 +72,17 @@ The app reads `DB_PATH` from environment.
 - Default: `./data/tasks.db`
 - If the `data` directory does not exist, it is created automatically.
 
+## Server configuration
+
+The app also reads server settings from environment.
+
+- `HOST` (default: empty / all interfaces)
+- `PORT` (default: `8080`)
+- `READ_HEADER_TIMEOUT` (default: `5s`)
+- `READ_TIMEOUT` (default: `10s`)
+- `WRITE_TIMEOUT` (default: `15s`)
+- `IDLE_TIMEOUT` (default: `60s`)
+
 ## Run
 
 ```powershell
@@ -88,5 +99,12 @@ http://localhost:8080/swagger/index.html
 
 ```powershell
 $env:DB_PATH = "./data/dev-tasks.db"
+go run ./...
+```
+
+## Run with custom port
+
+```powershell
+$env:PORT = "9090"
 go run ./...
 ```

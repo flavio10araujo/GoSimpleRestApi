@@ -30,6 +30,11 @@ import (
 // @BasePath  /
 
 func main() {
+	serverConfig, err := config.LoadServerConfig()
+	if err != nil {
+		log.Fatalf("failed to load server config: %v", err)
+	}
+
 	dbPath := config.GetEnv("DB_PATH", "./data/tasks.db")
 	sqliteDB, err := db.OpenSQLite(dbPath)
 	if err != nil {
@@ -57,7 +62,7 @@ func main() {
 
 	// Swagger UI
 	mux.Handle("/swagger/", httpSwagger.Handler(
-		httpSwagger.URL("http://localhost:8080/swagger/doc.json"),
+		httpSwagger.URL("/swagger/doc.json"),
 	))
 
 	mux.HandleFunc("POST /tasks", taskHandler.CreateTask)
@@ -67,7 +72,16 @@ func main() {
 	mux.HandleFunc("PATCH /tasks/{id}", taskHandler.UpdateTask)
 	mux.HandleFunc("DELETE /tasks/{id}", taskHandler.DeleteTask)
 
-	log.Println("Server running on :8080")
-	log.Println("Swagger UI available at http://localhost:8080/swagger/index.html")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	server := &http.Server{
+		Addr:              serverConfig.Address(),
+		Handler:           mux,
+		ReadHeaderTimeout: serverConfig.ReadHeaderTimeout,
+		ReadTimeout:       serverConfig.ReadTimeout,
+		WriteTimeout:      serverConfig.WriteTimeout,
+		IdleTimeout:       serverConfig.IdleTimeout,
+	}
+
+	log.Printf("Server running on %s", serverConfig.Address())
+	log.Printf("Swagger UI available at http://localhost:%s/swagger/index.html", serverConfig.Port)
+	log.Fatal(server.ListenAndServe())
 }
