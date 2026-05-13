@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/flavio10araujo/GoSimpleRestApi/internal/model"
@@ -15,8 +16,8 @@ func NewTaskService(taskRepository repository.TaskRepository) *TaskService {
 	return &TaskService{repository: taskRepository}
 }
 
-func (s *TaskService) AddTask(title string, done bool) (model.Task, error) {
-	task, err := s.repository.AddTask(title, done)
+func (s *TaskService) AddTask(ctx context.Context, title string, done bool) (model.Task, error) {
+	task, err := s.repository.AddTask(ctx, title, done)
 	if err != nil {
 		return model.Task{}, fmt.Errorf("add task: %w", err)
 	}
@@ -24,8 +25,8 @@ func (s *TaskService) AddTask(title string, done bool) (model.Task, error) {
 	return task, nil
 }
 
-func (s *TaskService) GetTask(id int) (model.Task, error) {
-	task, err := s.repository.GetTask(id)
+func (s *TaskService) GetTask(ctx context.Context, id int) (model.Task, error) {
+	task, err := s.repository.GetTask(ctx, id)
 	if err != nil {
 		return model.Task{}, fmt.Errorf("get task: %w", err)
 	}
@@ -33,8 +34,8 @@ func (s *TaskService) GetTask(id int) (model.Task, error) {
 	return task, nil
 }
 
-func (s *TaskService) ListTasks(offset, limit int) ([]model.Task, int, error) {
-	tasks, total, err := s.repository.ListTasks(offset, limit)
+func (s *TaskService) ListTasks(ctx context.Context, offset, limit int) ([]model.Task, int, error) {
+	tasks, total, err := s.repository.ListTasks(ctx, offset, limit)
 	if err != nil {
 		return nil, 0, fmt.Errorf("list tasks: %w", err)
 	}
@@ -42,8 +43,8 @@ func (s *TaskService) ListTasks(offset, limit int) ([]model.Task, int, error) {
 	return tasks, total, nil
 }
 
-func (s *TaskService) UpdateTask(id int, title string, done bool) (model.Task, error) {
-	task, err := s.repository.UpdateTask(id, title, done)
+func (s *TaskService) UpdateTask(ctx context.Context, id int, title string, done bool) (model.Task, error) {
+	task, err := s.repository.UpdateTask(ctx, id, title, done)
 	if err != nil {
 		return model.Task{}, fmt.Errorf("update task: %w", err)
 	}
@@ -51,8 +52,8 @@ func (s *TaskService) UpdateTask(id int, title string, done bool) (model.Task, e
 	return task, nil
 }
 
-func (s *TaskService) DeleteTask(id int) error {
-	if err := s.repository.DeleteTask(id); err != nil {
+func (s *TaskService) DeleteTask(ctx context.Context, id int) error {
+	if err := s.repository.DeleteTask(ctx, id); err != nil {
 		return fmt.Errorf("delete task: %w", err)
 	}
 

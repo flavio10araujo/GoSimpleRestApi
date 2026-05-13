@@ -61,7 +61,7 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdTask, err := h.taskService.AddTask(req.Title, req.Done)
+	createdTask, err := h.taskService.AddTask(r.Context(), req.Title, req.Done)
 	if err != nil {
 		writeErrorJSON(w, http.StatusInternalServerError, "failed to create task")
 		return
@@ -93,7 +93,7 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tasks, total, err := h.taskService.ListTasks(offset, limit)
+	tasks, total, err := h.taskService.ListTasks(r.Context(), offset, limit)
 	if err != nil {
 		writeErrorJSON(w, http.StatusInternalServerError, "failed to list tasks")
 		return
@@ -136,7 +136,7 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	task, err := h.taskService.GetTask(id)
+	task, err := h.taskService.GetTask(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
 			writeErrorJSON(w, http.StatusNotFound, "task not found")
@@ -188,7 +188,7 @@ func (h *TaskHandler) ReplaceTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updatedTask, err := h.taskService.UpdateTask(id, req.Title, req.Done)
+	updatedTask, err := h.taskService.UpdateTask(r.Context(), id, req.Title, req.Done)
 	if err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
 			writeErrorJSON(w, http.StatusNotFound, "task not found")
@@ -240,7 +240,7 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentTask, err := h.taskService.GetTask(id)
+	currentTask, err := h.taskService.GetTask(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
 			writeErrorJSON(w, http.StatusNotFound, "task not found")
@@ -262,7 +262,7 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 		currentTask.Done = *req.Done
 	}
 
-	updatedTask, err := h.taskService.UpdateTask(id, currentTask.Title, currentTask.Done)
+	updatedTask, err := h.taskService.UpdateTask(r.Context(), id, currentTask.Title, currentTask.Done)
 	if err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
 			writeErrorJSON(w, http.StatusNotFound, "task not found")
@@ -299,7 +299,7 @@ func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.taskService.DeleteTask(id); err != nil {
+	if err := h.taskService.DeleteTask(r.Context(), id); err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
 			writeErrorJSON(w, http.StatusNotFound, "task not found")
 			return

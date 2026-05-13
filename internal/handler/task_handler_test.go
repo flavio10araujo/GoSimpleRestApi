@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -15,38 +16,38 @@ import (
 )
 
 type fakeHandlerRepository struct {
-	addTaskFn    func(title string, done bool) (model.Task, error)
-	getTaskFn    func(id int) (model.Task, error)
-	listTasksFn  func(offset, limit int) ([]model.Task, int, error)
-	updateTaskFn func(id int, title string, done bool) (model.Task, error)
-	deleteTaskFn func(id int) error
+	addTaskFn    func(ctx context.Context, title string, done bool) (model.Task, error)
+	getTaskFn    func(ctx context.Context, id int) (model.Task, error)
+	listTasksFn  func(ctx context.Context, offset, limit int) ([]model.Task, int, error)
+	updateTaskFn func(ctx context.Context, id int, title string, done bool) (model.Task, error)
+	deleteTaskFn func(ctx context.Context, id int) error
 }
 
-func (f *fakeHandlerRepository) AddTask(title string, done bool) (model.Task, error) {
-	return f.addTaskFn(title, done)
+func (f *fakeHandlerRepository) AddTask(ctx context.Context, title string, done bool) (model.Task, error) {
+	return f.addTaskFn(ctx, title, done)
 }
 
-func (f *fakeHandlerRepository) GetTask(id int) (model.Task, error) {
-	return f.getTaskFn(id)
+func (f *fakeHandlerRepository) GetTask(ctx context.Context, id int) (model.Task, error) {
+	return f.getTaskFn(ctx, id)
 }
 
-func (f *fakeHandlerRepository) ListTasks(offset, limit int) ([]model.Task, int, error) {
-	return f.listTasksFn(offset, limit)
+func (f *fakeHandlerRepository) ListTasks(ctx context.Context, offset, limit int) ([]model.Task, int, error) {
+	return f.listTasksFn(ctx, offset, limit)
 }
 
-func (f *fakeHandlerRepository) UpdateTask(id int, title string, done bool) (model.Task, error) {
-	return f.updateTaskFn(id, title, done)
+func (f *fakeHandlerRepository) UpdateTask(ctx context.Context, id int, title string, done bool) (model.Task, error) {
+	return f.updateTaskFn(ctx, id, title, done)
 }
 
-func (f *fakeHandlerRepository) DeleteTask(id int) error {
-	return f.deleteTaskFn(id)
+func (f *fakeHandlerRepository) DeleteTask(ctx context.Context, id int) error {
+	return f.deleteTaskFn(ctx, id)
 }
 
-func newTestService(addFn func(string, bool) (model.Task, error),
-	getFn func(int) (model.Task, error),
-	listFn func(int, int) ([]model.Task, int, error),
-	updateFn func(int, string, bool) (model.Task, error),
-	deleteFn func(int) error) *service.TaskService {
+func newTestService(addFn func(context.Context, string, bool) (model.Task, error),
+	getFn func(context.Context, int) (model.Task, error),
+	listFn func(context.Context, int, int) ([]model.Task, int, error),
+	updateFn func(context.Context, int, string, bool) (model.Task, error),
+	deleteFn func(context.Context, int) error) *service.TaskService {
 	fakeRepo := &fakeHandlerRepository{
 		addTaskFn:    addFn,
 		getTaskFn:    getFn,
@@ -83,7 +84,7 @@ func TestGetTasksSuccess(t *testing.T) {
 	svc := newTestService(
 		nil,
 		nil,
-		func(offset, limit int) ([]model.Task, int, error) {
+		func(_ context.Context, offset, limit int) ([]model.Task, int, error) {
 			return expected, 2, nil
 		},
 		nil,
@@ -118,7 +119,7 @@ func TestGetTasksWithPagination(t *testing.T) {
 	svc := newTestService(
 		nil,
 		nil,
-		func(offset, limit int) ([]model.Task, int, error) {
+		func(_ context.Context, offset, limit int) ([]model.Task, int, error) {
 			if offset != 10 || limit != 5 {
 				t.Errorf("Expected offset=10, limit=5 but got offset=%d, limit=%d", offset, limit)
 			}
@@ -177,7 +178,9 @@ func TestGetTasksError(t *testing.T) {
 	svc := newTestService(
 		nil,
 		nil,
-		func(offset, limit int) ([]model.Task, int, error) { return nil, 0, errors.New("db error") },
+		func(_ context.Context, offset, limit int) ([]model.Task, int, error) {
+			return nil, 0, errors.New("db error")
+		},
 		nil,
 		nil,
 	)
@@ -194,7 +197,7 @@ func TestGetTasksError(t *testing.T) {
 func TestCreateTaskSuccess(t *testing.T) {
 	expected := model.Task{ID: 1, Title: "New Task", Done: false}
 	svc := newTestService(
-		func(title string, done bool) (model.Task, error) {
+		func(_ context.Context, title string, done bool) (model.Task, error) {
 			return expected, nil
 		},
 		nil,
@@ -249,7 +252,7 @@ func TestCreateTaskEmptyTitle(t *testing.T) {
 
 func TestCreateTaskServiceError(t *testing.T) {
 	svc := newTestService(
-		func(title string, done bool) (model.Task, error) {
+		func(_ context.Context, title string, done bool) (model.Task, error) {
 			return model.Task{}, errors.New("db error")
 		},
 		nil,
@@ -274,7 +277,7 @@ func TestReplaceTaskSuccess(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		func(id int, title string, done bool) (model.Task, error) {
+		func(_ context.Context, id int, title string, done bool) (model.Task, error) {
 			return expected, nil
 		},
 		nil,
@@ -343,7 +346,7 @@ func TestReplaceTaskNotFound(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		func(id int, title string, done bool) (model.Task, error) {
+		func(_ context.Context, id int, title string, done bool) (model.Task, error) {
 			return model.Task{}, repository.ErrTaskNotFound
 		},
 		nil,
@@ -365,7 +368,7 @@ func TestReplaceTaskServiceError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		func(id int, title string, done bool) (model.Task, error) {
+		func(_ context.Context, id int, title string, done bool) (model.Task, error) {
 			return model.Task{}, errors.New("db error")
 		},
 		nil,
@@ -389,11 +392,11 @@ func TestUpdateTaskPatchDoneOnlySuccess(t *testing.T) {
 	expected := model.Task{ID: 8, Title: "Existing", Done: true}
 	svc := newTestService(
 		nil,
-		func(id int) (model.Task, error) {
+		func(_ context.Context, id int) (model.Task, error) {
 			return model.Task{ID: id, Title: "Existing", Done: false}, nil
 		},
 		nil,
-		func(id int, title string, done bool) (model.Task, error) {
+		func(_ context.Context, id int, title string, done bool) (model.Task, error) {
 			updatedTitle = title
 			updatedDone = done
 			return expected, nil
@@ -443,7 +446,7 @@ func TestDeleteTaskSuccess(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		func(id int) error {
+		func(_ context.Context, id int) error {
 			return nil
 		},
 	)
@@ -479,7 +482,7 @@ func TestDeleteTaskNotFound(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		func(id int) error {
+		func(_ context.Context, id int) error {
 			return repository.ErrTaskNotFound
 		},
 	)
@@ -500,7 +503,7 @@ func TestDeleteTaskServiceError(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		func(id int) error {
+		func(_ context.Context, id int) error {
 			return errors.New("db error")
 		},
 	)

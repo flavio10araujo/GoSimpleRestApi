@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -10,31 +11,31 @@ import (
 )
 
 type fakeTaskRepository struct {
-	addTaskFn    func(title string, done bool) (model.Task, error)
-	getTaskFn    func(id int) (model.Task, error)
-	listTasksFn  func(offset, limit int) ([]model.Task, int, error)
-	updateTaskFn func(id int, title string, done bool) (model.Task, error)
-	deleteTaskFn func(id int) error
+	addTaskFn    func(ctx context.Context, title string, done bool) (model.Task, error)
+	getTaskFn    func(ctx context.Context, id int) (model.Task, error)
+	listTasksFn  func(ctx context.Context, offset, limit int) ([]model.Task, int, error)
+	updateTaskFn func(ctx context.Context, id int, title string, done bool) (model.Task, error)
+	deleteTaskFn func(ctx context.Context, id int) error
 }
 
-func (f *fakeTaskRepository) AddTask(title string, done bool) (model.Task, error) {
-	return f.addTaskFn(title, done)
+func (f *fakeTaskRepository) AddTask(ctx context.Context, title string, done bool) (model.Task, error) {
+	return f.addTaskFn(ctx, title, done)
 }
 
-func (f *fakeTaskRepository) GetTask(id int) (model.Task, error) {
-	return f.getTaskFn(id)
+func (f *fakeTaskRepository) GetTask(ctx context.Context, id int) (model.Task, error) {
+	return f.getTaskFn(ctx, id)
 }
 
-func (f *fakeTaskRepository) ListTasks(offset, limit int) ([]model.Task, int, error) {
-	return f.listTasksFn(offset, limit)
+func (f *fakeTaskRepository) ListTasks(ctx context.Context, offset, limit int) ([]model.Task, int, error) {
+	return f.listTasksFn(ctx, offset, limit)
 }
 
-func (f *fakeTaskRepository) UpdateTask(id int, title string, done bool) (model.Task, error) {
-	return f.updateTaskFn(id, title, done)
+func (f *fakeTaskRepository) UpdateTask(ctx context.Context, id int, title string, done bool) (model.Task, error) {
+	return f.updateTaskFn(ctx, id, title, done)
 }
 
-func (f *fakeTaskRepository) DeleteTask(id int) error {
-	return f.deleteTaskFn(id)
+func (f *fakeTaskRepository) DeleteTask(ctx context.Context, id int) error {
+	return f.deleteTaskFn(ctx, id)
 }
 
 func TestTaskServiceAddTaskSuccess(t *testing.T) {
@@ -43,7 +44,7 @@ func TestTaskServiceAddTaskSuccess(t *testing.T) {
 
 	expected := model.Task{ID: 1, Title: "Study Go", Done: false}
 	repo := &fakeTaskRepository{
-		addTaskFn: func(title string, done bool) (model.Task, error) {
+		addTaskFn: func(_ context.Context, title string, done bool) (model.Task, error) {
 			gotTitle = title
 			gotDone = done
 			return expected, nil
@@ -51,7 +52,7 @@ func TestTaskServiceAddTaskSuccess(t *testing.T) {
 	}
 
 	svc := NewTaskService(repo)
-	got, err := svc.AddTask("Study Go", false)
+	got, err := svc.AddTask(context.Background(), "Study Go", false)
 	if err != nil {
 		t.Fatalf("AddTask returned unexpected error: %v", err)
 	}
@@ -66,13 +67,13 @@ func TestTaskServiceAddTaskSuccess(t *testing.T) {
 func TestTaskServiceAddTaskError(t *testing.T) {
 	repoErr := errors.New("insert failed")
 	repo := &fakeTaskRepository{
-		addTaskFn: func(title string, done bool) (model.Task, error) {
+		addTaskFn: func(_ context.Context, title string, done bool) (model.Task, error) {
 			return model.Task{}, repoErr
 		},
 	}
 
 	svc := NewTaskService(repo)
-	got, err := svc.AddTask("X", true)
+	got, err := svc.AddTask(context.Background(), "X", true)
 	if err == nil {
 		t.Fatal("AddTask expected error, got nil")
 	}
@@ -91,14 +92,14 @@ func TestTaskServiceGetTaskSuccess(t *testing.T) {
 	var gotID int
 	expected := model.Task{ID: 4, Title: "Review PR", Done: false}
 	repo := &fakeTaskRepository{
-		getTaskFn: func(id int) (model.Task, error) {
+		getTaskFn: func(_ context.Context, id int) (model.Task, error) {
 			gotID = id
 			return expected, nil
 		},
 	}
 
 	svc := NewTaskService(repo)
-	got, err := svc.GetTask(4)
+	got, err := svc.GetTask(context.Background(), 4)
 	if err != nil {
 		t.Fatalf("GetTask returned unexpected error: %v", err)
 	}
@@ -113,13 +114,13 @@ func TestTaskServiceGetTaskSuccess(t *testing.T) {
 func TestTaskServiceGetTaskError(t *testing.T) {
 	repoErr := repository.ErrTaskNotFound
 	repo := &fakeTaskRepository{
-		getTaskFn: func(id int) (model.Task, error) {
+		getTaskFn: func(_ context.Context, id int) (model.Task, error) {
 			return model.Task{}, repoErr
 		},
 	}
 
 	svc := NewTaskService(repo)
-	got, err := svc.GetTask(99)
+	got, err := svc.GetTask(context.Background(), 99)
 	if err == nil {
 		t.Fatal("GetTask expected error, got nil")
 	}
@@ -137,13 +138,13 @@ func TestTaskServiceGetTaskError(t *testing.T) {
 func TestTaskServiceListTasksSuccess(t *testing.T) {
 	expected := []model.Task{{ID: 1, Title: "A", Done: false}, {ID: 2, Title: "B", Done: true}}
 	repo := &fakeTaskRepository{
-		listTasksFn: func(offset, limit int) ([]model.Task, int, error) {
+		listTasksFn: func(_ context.Context, offset, limit int) ([]model.Task, int, error) {
 			return expected, 2, nil
 		},
 	}
 
 	svc := NewTaskService(repo)
-	got, total, err := svc.ListTasks(0, 20)
+	got, total, err := svc.ListTasks(context.Background(), 0, 20)
 	if err != nil {
 		t.Fatalf("ListTasks returned unexpected error: %v", err)
 	}
@@ -163,13 +164,13 @@ func TestTaskServiceListTasksSuccess(t *testing.T) {
 func TestTaskServiceListTasksError(t *testing.T) {
 	repoErr := errors.New("query failed")
 	repo := &fakeTaskRepository{
-		listTasksFn: func(offset, limit int) ([]model.Task, int, error) {
+		listTasksFn: func(_ context.Context, offset, limit int) ([]model.Task, int, error) {
 			return nil, 0, repoErr
 		},
 	}
 
 	svc := NewTaskService(repo)
-	got, total, err := svc.ListTasks(0, 20)
+	got, total, err := svc.ListTasks(context.Background(), 0, 20)
 	if err == nil {
 		t.Fatal("ListTasks expected error, got nil")
 	}
@@ -194,7 +195,7 @@ func TestTaskServiceUpdateTaskSuccess(t *testing.T) {
 
 	expected := model.Task{ID: 7, Title: "Updated", Done: true}
 	repo := &fakeTaskRepository{
-		updateTaskFn: func(id int, title string, done bool) (model.Task, error) {
+		updateTaskFn: func(_ context.Context, id int, title string, done bool) (model.Task, error) {
 			gotID = id
 			gotTitle = title
 			gotDone = done
@@ -203,7 +204,7 @@ func TestTaskServiceUpdateTaskSuccess(t *testing.T) {
 	}
 
 	svc := NewTaskService(repo)
-	got, err := svc.UpdateTask(7, "Updated", true)
+	got, err := svc.UpdateTask(context.Background(), 7, "Updated", true)
 	if err != nil {
 		t.Fatalf("UpdateTask returned unexpected error: %v", err)
 	}
@@ -217,13 +218,13 @@ func TestTaskServiceUpdateTaskSuccess(t *testing.T) {
 
 func TestTaskServiceUpdateTaskError(t *testing.T) {
 	repo := &fakeTaskRepository{
-		updateTaskFn: func(id int, title string, done bool) (model.Task, error) {
+		updateTaskFn: func(_ context.Context, id int, title string, done bool) (model.Task, error) {
 			return model.Task{}, repository.ErrTaskNotFound
 		},
 	}
 
 	svc := NewTaskService(repo)
-	got, err := svc.UpdateTask(99, "Missing", false)
+	got, err := svc.UpdateTask(context.Background(), 99, "Missing", false)
 	if err == nil {
 		t.Fatal("UpdateTask expected error, got nil")
 	}
@@ -241,14 +242,14 @@ func TestTaskServiceUpdateTaskError(t *testing.T) {
 func TestTaskServiceDeleteTaskSuccess(t *testing.T) {
 	var gotID int
 	repo := &fakeTaskRepository{
-		deleteTaskFn: func(id int) error {
+		deleteTaskFn: func(_ context.Context, id int) error {
 			gotID = id
 			return nil
 		},
 	}
 
 	svc := NewTaskService(repo)
-	if err := svc.DeleteTask(3); err != nil {
+	if err := svc.DeleteTask(context.Background(), 3); err != nil {
 		t.Fatalf("DeleteTask returned unexpected error: %v", err)
 	}
 	if gotID != 3 {
@@ -258,13 +259,13 @@ func TestTaskServiceDeleteTaskSuccess(t *testing.T) {
 
 func TestTaskServiceDeleteTaskError(t *testing.T) {
 	repo := &fakeTaskRepository{
-		deleteTaskFn: func(id int) error {
+		deleteTaskFn: func(_ context.Context, id int) error {
 			return repository.ErrTaskNotFound
 		},
 	}
 
 	svc := NewTaskService(repo)
-	err := svc.DeleteTask(77)
+	err := svc.DeleteTask(context.Background(), 77)
 	if err == nil {
 		t.Fatal("DeleteTask expected error, got nil")
 	}

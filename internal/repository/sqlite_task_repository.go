@@ -17,8 +17,8 @@ func NewSQLiteTaskRepository(db *sql.DB) *SQLiteTaskRepository {
 	return &SQLiteTaskRepository{db: db}
 }
 
-func (r *SQLiteTaskRepository) AddTask(title string, done bool) (model.Task, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+func (r *SQLiteTaskRepository) AddTask(ctx context.Context, title string, done bool) (model.Task, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	result, err := r.db.ExecContext(ctx, "INSERT INTO tasks (title, done) VALUES (?, ?)", title, boolToSQLite(done))
@@ -34,8 +34,8 @@ func (r *SQLiteTaskRepository) AddTask(title string, done bool) (model.Task, err
 	return model.Task{ID: int(id), Title: title, Done: done}, nil
 }
 
-func (r *SQLiteTaskRepository) GetTask(id int) (model.Task, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+func (r *SQLiteTaskRepository) GetTask(ctx context.Context, id int) (model.Task, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	var task model.Task
@@ -52,8 +52,8 @@ func (r *SQLiteTaskRepository) GetTask(id int) (model.Task, error) {
 	return task, nil
 }
 
-func (r *SQLiteTaskRepository) ListTasks(offset, limit int) ([]model.Task, int, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+func (r *SQLiteTaskRepository) ListTasks(ctx context.Context, offset, limit int) ([]model.Task, int, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	var total int
@@ -86,8 +86,8 @@ func (r *SQLiteTaskRepository) ListTasks(offset, limit int) ([]model.Task, int, 
 	return tasks, total, nil
 }
 
-func (r *SQLiteTaskRepository) UpdateTask(id int, title string, done bool) (model.Task, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+func (r *SQLiteTaskRepository) UpdateTask(ctx context.Context, id int, title string, done bool) (model.Task, error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	result, err := r.db.ExecContext(ctx, "UPDATE tasks SET title = ?, done = ? WHERE id = ?", title, boolToSQLite(done), id)
@@ -106,8 +106,8 @@ func (r *SQLiteTaskRepository) UpdateTask(id int, title string, done bool) (mode
 	return model.Task{ID: id, Title: title, Done: done}, nil
 }
 
-func (r *SQLiteTaskRepository) DeleteTask(id int) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+func (r *SQLiteTaskRepository) DeleteTask(ctx context.Context, id int) error {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	result, err := r.db.ExecContext(ctx, "DELETE FROM tasks WHERE id = ?", id)
