@@ -62,6 +62,22 @@ func newTestHandler(svc *service.TaskService) *TaskHandler {
 	return NewTaskHandler(svc, paginationCfg)
 }
 
+func assertJSONError(t *testing.T, w *httptest.ResponseRecorder, expected string) {
+	t.Helper()
+
+	if ct := w.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("Error Content-Type is %q, expected application/json", ct)
+	}
+
+	var got ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("Failed to unmarshal error response: %v", err)
+	}
+	if got.Error != expected {
+		t.Fatalf("Error message is %q, expected %q", got.Error, expected)
+	}
+}
+
 func TestGetTasksSuccess(t *testing.T) {
 	expected := []model.Task{{ID: 1, Title: "Task A", Done: false}, {ID: 2, Title: "Task B", Done: true}}
 	svc := newTestService(
@@ -142,6 +158,7 @@ func TestGetTasksInvalidLimit(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("GetTasks with limit>max returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
+	assertJSONError(t, w, "limit exceeds maximum allowed")
 }
 
 func TestGetTasksInvalidOffset(t *testing.T) {
@@ -153,6 +170,7 @@ func TestGetTasksInvalidOffset(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("GetTasks with negative offset returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
+	assertJSONError(t, w, "invalid offset")
 }
 
 func TestGetTasksError(t *testing.T) {
@@ -170,6 +188,7 @@ func TestGetTasksError(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("GetTasks returned status %d, expected %d", w.Code, http.StatusInternalServerError)
 	}
+	assertJSONError(t, w, "failed to list tasks")
 }
 
 func TestCreateTaskSuccess(t *testing.T) {
@@ -212,6 +231,7 @@ func TestCreateTaskInvalidBody(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("CreateTask with invalid body returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
+	assertJSONError(t, w, "invalid request body")
 }
 
 func TestCreateTaskEmptyTitle(t *testing.T) {
@@ -224,6 +244,7 @@ func TestCreateTaskEmptyTitle(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("CreateTask with empty title returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
+	assertJSONError(t, w, "title is required")
 }
 
 func TestCreateTaskServiceError(t *testing.T) {
@@ -244,6 +265,7 @@ func TestCreateTaskServiceError(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("CreateTask with service error returned status %d, expected %d", w.Code, http.StatusInternalServerError)
 	}
+	assertJSONError(t, w, "failed to create task")
 }
 
 func TestReplaceTaskSuccess(t *testing.T) {
@@ -286,6 +308,7 @@ func TestReplaceTaskInvalidID(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("ReplaceTask with invalid ID returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
+	assertJSONError(t, w, "invalid task id")
 }
 
 func TestReplaceTaskInvalidBody(t *testing.T) {
@@ -298,6 +321,7 @@ func TestReplaceTaskInvalidBody(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("ReplaceTask with invalid body returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
+	assertJSONError(t, w, "invalid request body")
 }
 
 func TestReplaceTaskEmptyTitle(t *testing.T) {
@@ -311,6 +335,7 @@ func TestReplaceTaskEmptyTitle(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("ReplaceTask with empty title returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
+	assertJSONError(t, w, "title is required")
 }
 
 func TestReplaceTaskNotFound(t *testing.T) {
@@ -332,6 +357,7 @@ func TestReplaceTaskNotFound(t *testing.T) {
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("ReplaceTask with not found error returned status %d, expected %d", w.Code, http.StatusNotFound)
 	}
+	assertJSONError(t, w, "task not found")
 }
 
 func TestReplaceTaskServiceError(t *testing.T) {
@@ -353,6 +379,7 @@ func TestReplaceTaskServiceError(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("ReplaceTask with service error returned status %d, expected %d", w.Code, http.StatusInternalServerError)
 	}
+	assertJSONError(t, w, "failed to update task")
 }
 
 func TestUpdateTaskPatchDoneOnlySuccess(t *testing.T) {
@@ -407,6 +434,7 @@ func TestUpdateTaskPatchWithoutFields(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("UpdateTask PATCH without fields returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
+	assertJSONError(t, w, "at least one field is required")
 }
 
 func TestDeleteTaskSuccess(t *testing.T) {
@@ -442,6 +470,7 @@ func TestDeleteTaskInvalidID(t *testing.T) {
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("DeleteTask with invalid ID returned status %d, expected %d", w.Code, http.StatusBadRequest)
 	}
+	assertJSONError(t, w, "invalid task id")
 }
 
 func TestDeleteTaskNotFound(t *testing.T) {
@@ -462,6 +491,7 @@ func TestDeleteTaskNotFound(t *testing.T) {
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("DeleteTask with not found error returned status %d, expected %d", w.Code, http.StatusNotFound)
 	}
+	assertJSONError(t, w, "task not found")
 }
 
 func TestDeleteTaskServiceError(t *testing.T) {
@@ -482,4 +512,5 @@ func TestDeleteTaskServiceError(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("DeleteTask with service error returned status %d, expected %d", w.Code, http.StatusInternalServerError)
 	}
+	assertJSONError(t, w, "failed to delete task")
 }

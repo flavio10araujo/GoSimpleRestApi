@@ -44,26 +44,26 @@ func NewTaskHandler(taskService *service.TaskService, paginationConfig *config.P
 // @Param        body  body  createTaskRequest  true  "Task data"
 // @Produce      json
 // @Success      201  {object}  model.Task
-// @Failure      400  {object}  map[string]string  "Missing title or invalid JSON"
-// @Failure      500  {object}  map[string]string  "Database error"
+// @Failure      400  {object}  ErrorResponse  "Missing title or invalid JSON"
+// @Failure      500  {object}  ErrorResponse  "Database error"
 // @Router       /tasks [post]
 func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	var req createTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if req.Title == "" {
-		http.Error(w, "title is required", http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, "title is required")
 		return
 	}
 
 	createdTask, err := h.taskService.AddTask(req.Title, req.Done)
 	if err != nil {
-		http.Error(w, "failed to create task", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to create task")
 		return
 	}
 
@@ -71,7 +71,7 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	if err := json.NewEncoder(w).Encode(createdTask); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to encode response")
 	}
 }
 
@@ -83,19 +83,19 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 // @Param        limit   query  int  false  "Limit per page (default: 20, max: 100)"  default(20)
 // @Produce      json
 // @Success      200  {object}  PaginatedResponse
-// @Failure      400  {object}  map[string]string  "Invalid pagination parameters"
-// @Failure      500  {object}  map[string]string  "Database error"
+// @Failure      400  {object}  ErrorResponse  "Invalid pagination parameters"
+// @Failure      500  {object}  ErrorResponse  "Database error"
 // @Router       /tasks [get]
 func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 	offset, limit, err := parsePaginationParams(r, h.paginationConfig)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tasks, total, err := h.taskService.ListTasks(offset, limit)
 	if err != nil {
-		http.Error(w, "failed to list tasks", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to list tasks")
 		return
 	}
 
@@ -114,7 +114,7 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to encode response")
 	}
 }
 
@@ -125,25 +125,25 @@ func (h *TaskHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 // @Param        id  path  int  true  "Task ID"
 // @Produce      json
 // @Success      200  {object}  model.Task
-// @Failure      400  {object}  map[string]string  "Invalid ID"
-// @Failure      404  {object}  map[string]string  "Task not found"
-// @Failure      500  {object}  map[string]string  "Database error"
+// @Failure      400  {object}  ErrorResponse  "Invalid ID"
+// @Failure      404  {object}  ErrorResponse  "Task not found"
+// @Failure      500  {object}  ErrorResponse  "Database error"
 // @Router       /tasks/{id} [get]
 func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 	id, err := parseTaskID(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	task, err := h.taskService.GetTask(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
-			http.Error(w, "task not found", http.StatusNotFound)
+			writeErrorJSON(w, http.StatusNotFound, "task not found")
 			return
 		}
 
-		http.Error(w, "failed to get task", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to get task")
 		return
 	}
 
@@ -151,7 +151,7 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(task); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to encode response")
 	}
 }
 
@@ -164,38 +164,38 @@ func (h *TaskHandler) GetTask(w http.ResponseWriter, r *http.Request) {
 // @Param        body  body  updateTaskRequest  true  "Updated task data"
 // @Produce      json
 // @Success      200  {object}  model.Task
-// @Failure      400  {object}  map[string]string  "Invalid ID or request"
-// @Failure      404  {object}  map[string]string  "Task not found"
-// @Failure      500  {object}  map[string]string  "Database error"
+// @Failure      400  {object}  ErrorResponse  "Invalid ID or request"
+// @Failure      404  {object}  ErrorResponse  "Task not found"
+// @Failure      500  {object}  ErrorResponse  "Database error"
 // @Router       /tasks/{id} [put]
 func (h *TaskHandler) ReplaceTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	id, err := parseTaskID(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req updateTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if req.Title == "" {
-		http.Error(w, "title is required", http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, "title is required")
 		return
 	}
 
 	updatedTask, err := h.taskService.UpdateTask(id, req.Title, req.Done)
 	if err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
-			http.Error(w, "task not found", http.StatusNotFound)
+			writeErrorJSON(w, http.StatusNotFound, "task not found")
 			return
 		}
 
-		http.Error(w, "failed to update task", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to update task")
 		return
 	}
 
@@ -203,7 +203,7 @@ func (h *TaskHandler) ReplaceTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(updatedTask); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to encode response")
 	}
 }
 
@@ -216,44 +216,44 @@ func (h *TaskHandler) ReplaceTask(w http.ResponseWriter, r *http.Request) {
 // @Param        body  body  patchTaskRequest  true  "Fields to update"
 // @Produce      json
 // @Success      200  {object}  model.Task
-// @Failure      400  {object}  map[string]string  "Invalid ID or request"
-// @Failure      404  {object}  map[string]string  "Task not found"
-// @Failure      500  {object}  map[string]string  "Database error"
+// @Failure      400  {object}  ErrorResponse  "Invalid ID or request"
+// @Failure      404  {object}  ErrorResponse  "Task not found"
+// @Failure      500  {object}  ErrorResponse  "Database error"
 // @Router       /tasks/{id} [patch]
 func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
 	id, err := parseTaskID(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	var req patchTaskRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	if req.Title == nil && req.Done == nil {
-		http.Error(w, "at least one field is required", http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, "at least one field is required")
 		return
 	}
 
 	currentTask, err := h.taskService.GetTask(id)
 	if err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
-			http.Error(w, "task not found", http.StatusNotFound)
+			writeErrorJSON(w, http.StatusNotFound, "task not found")
 			return
 		}
 
-		http.Error(w, "failed to get task", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to get task")
 		return
 	}
 
 	if req.Title != nil {
 		if *req.Title == "" {
-			http.Error(w, "title cannot be empty", http.StatusBadRequest)
+			writeErrorJSON(w, http.StatusBadRequest, "title cannot be empty")
 			return
 		}
 		currentTask.Title = *req.Title
@@ -265,11 +265,11 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	updatedTask, err := h.taskService.UpdateTask(id, currentTask.Title, currentTask.Done)
 	if err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
-			http.Error(w, "task not found", http.StatusNotFound)
+			writeErrorJSON(w, http.StatusNotFound, "task not found")
 			return
 		}
 
-		http.Error(w, "failed to update task", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to update task")
 		return
 	}
 
@@ -277,7 +277,7 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(updatedTask); err != nil {
-		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to encode response")
 	}
 }
 
@@ -288,24 +288,24 @@ func (h *TaskHandler) UpdateTask(w http.ResponseWriter, r *http.Request) {
 // @Param        id  path  int  true  "Task ID"
 // @Produce      json
 // @Success      204
-// @Failure      400  {object}  map[string]string  "Invalid ID"
-// @Failure      404  {object}  map[string]string  "Task not found"
-// @Failure      500  {object}  map[string]string  "Database error"
+// @Failure      400  {object}  ErrorResponse  "Invalid ID"
+// @Failure      404  {object}  ErrorResponse  "Task not found"
+// @Failure      500  {object}  ErrorResponse  "Database error"
 // @Router       /tasks/{id} [delete]
 func (h *TaskHandler) DeleteTask(w http.ResponseWriter, r *http.Request) {
 	id, err := parseTaskID(r)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeErrorJSON(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := h.taskService.DeleteTask(id); err != nil {
 		if errors.Is(err, repository.ErrTaskNotFound) {
-			http.Error(w, "task not found", http.StatusNotFound)
+			writeErrorJSON(w, http.StatusNotFound, "task not found")
 			return
 		}
 
-		http.Error(w, "failed to delete task", http.StatusInternalServerError)
+		writeErrorJSON(w, http.StatusInternalServerError, "failed to delete task")
 		return
 	}
 
